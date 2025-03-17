@@ -29,31 +29,29 @@ func main() {
 	}
 
 	botChannel := botClient.CreateBotChannel()
-	botCtx, _ := context.WithCancel(context.Background())
+	botCtx, botCancel := context.WithCancel(context.Background())
 
 	commandsHandler := commands.NewHandler(botClient)
 	messagesHandler := messages.NewHandler(botClient)
 
-	log.Info().Msg("Bot is alive and listening!")
-
-	//go func() {
-	for {
-		select {
-		case <-botCtx.Done():
-			return
-		case update := <-botChannel:
-			if update.Message.IsCommand() {
-				commandsHandler.ProcessCommand(update)
-			} else if update.Message != nil {
-				messagesHandler.ProcessMessage(update.Message)
+	go func() {
+		for {
+			select {
+			case <-botCtx.Done():
+				return
+			case update := <-botChannel:
+				if update.Message.IsCommand() {
+					commandsHandler.ProcessCommand(update)
+				} else if update.Message != nil {
+					messagesHandler.ProcessMessage(update.Message)
+				}
 			}
 		}
-	}
-	//}()
+	}()
 
 	log.Info().Msg("Bot is alive and listening!")
 
-	//gracefulShutdown(botCancel)
+	gracefulShutdown(botCancel)
 }
 
 func setupLogger() {
