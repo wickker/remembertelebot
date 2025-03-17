@@ -1,19 +1,57 @@
 package main
 
 import (
+	"context"
+	"os"
+	"os/signal"
+	"runtime/debug"
+	"syscall"
+
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"os"
+
+	"remembertelebot/bot"
 	"remembertelebot/config"
-	"runtime/debug"
+	"remembertelebot/services/commands"
+	"remembertelebot/services/messages"
 )
 
 func main() {
 	setupLogger()
 
 	envCfg := loadEnv()
+
+	botClient, err := bot.NewClient(envCfg)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to create bot client.")
+	}
+
+	botChannel := botClient.CreateBotChannel()
+	botCtx, botCancel := context.WithCancel(context.Background())
+
+	commandsHandler := commands.NewHandler(botClient)
+	messagesHandler := messages.NewHandler(botClient)
+
+	go func() {
+		for {
+			select {
+			case <-botCtx.Done():
+				return
+			case update := <-botChannel:
+				if update.Message.IsCommand() {
+					commandsHandler.ProcessCommand(update)
+				} else if update.Message != nil {
+					messagesHandler.ProcessMessage(update.Message)
+				}
+			}
+		}
+	}()
+
+	log.Info().Msg("Bot is alive and listening!")
+
+	gracefulShutdown(botCancel)
 }
 
 func setupLogger() {
@@ -33,4 +71,13 @@ func loadEnv() config.EnvConfig {
 		log.Fatal().Err(err).Msg("Unable to parse environment variables to struct.")
 	}
 	return envCfg
+}
+
+func gracefulShutdown(botCancel context.CancelFunc) {
+	channel := make(chan os.Signal)                         // create a channel to listen for OS signals
+	signal.Notify(channel, syscall.SIGINT, syscall.SIGTERM) // listen for termination signals
+	<-channel                                               // wait for the signal to arrive (blocking call)
+	log.Info().Msg("Shutting down Telegram bot.")
+
+	botCancel()
 }
