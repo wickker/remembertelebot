@@ -32,7 +32,7 @@ func (c *Client) CreateBotChannel() tgbotapi.UpdatesChannel {
 func (c *Client) SendPlainMessage(chatId int64, message string) error {
 	msg := tgbotapi.NewMessage(chatId, message)
 	if _, err := c.bot.Send(msg); err != nil {
-		return fmt.Errorf("bot failed to send message [messageConfig: %+v]: %w", msg, err)
+		return fmt.Errorf("bot failed to send plain message [messageConfig: %+v]: %w", msg, err)
 	}
 	return nil
 }
