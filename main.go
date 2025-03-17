@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -34,7 +36,19 @@ func main() {
 	commandsHandler := commands.NewHandler(botClient)
 	messagesHandler := messages.NewHandler(botClient)
 
+	// Need this to pass Google Cloud Run's TCP probe 💀
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintf(w, "Remember bot is up!")
+	})
 	go func() {
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			log.Fatal().Err(err).Msg("Unable to start server.")
+		}
+	}()
+
+	go func() {
+		log.Info().Msg("Bot is alive and listening.")
+
 		for {
 			select {
 			case <-botCtx.Done():
@@ -48,8 +62,6 @@ func main() {
 			}
 		}
 	}()
-
-	log.Info().Msg("Bot is alive and listening!")
 
 	gracefulShutdown(botCancel)
 }

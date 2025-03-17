@@ -1,0 +1,6 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args: [ "build", "-t", "gcr.io/remember-tele-bot/remembertelebot", ".", "-f", "Dockerfile" ]
+
+  - name: "gcr.io/cloud-builders/docker"
+    args: [ "push", "gcr.io/remember-tele-bot/remembertelebot" ]
