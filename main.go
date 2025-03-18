@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/caarlos0/env/v11"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -25,6 +26,13 @@ func main() {
 
 	envCfg := loadEnv()
 
+	pool, err := pgxpool.New(context.Background(), envCfg.DatabaseURL)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to connect to database.")
+	}
+	defer pool.Close()
+	//queries := sqlc.New(pool)
+
 	botClient, err := bot.NewClient(envCfg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to create bot client.")
@@ -36,6 +44,7 @@ func main() {
 	commandsHandler := commands.NewHandler(botClient)
 	messagesHandler := messages.NewHandler(botClient)
 
+	// TODO: Figure out how to disable the probe
 	// Need this to pass Google Cloud Run's TCP probe 💀
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintf(w, "Remember bot is up!")
@@ -82,14 +91,15 @@ func loadEnv() config.EnvConfig {
 	if err := env.Parse(&envCfg); err != nil {
 		log.Fatal().Err(err).Msg("Unable to parse environment variables to struct.")
 	}
+
 	return envCfg
 }
 
 func gracefulShutdown(botCancel context.CancelFunc) {
-	channel := make(chan os.Signal)                         // create a channel to listen for OS signals
-	signal.Notify(channel, syscall.SIGINT, syscall.SIGTERM) // listen for termination signals
-	<-channel                                               // wait for the signal to arrive (blocking call)
-	log.Info().Msg("Shutting down Telegram bot.")
+	channel := make(chan os.Signal)
+	signal.Notify(channel, syscall.SIGINT, syscall.SIGTERM)
+	<-channel
 
+	log.Info().Msg("Shutting down Telegram bot.")
 	botCancel()
 }
