@@ -9,7 +9,7 @@ $$ language 'plpgsql';
 CREATE TABLE chats
 (
     id               SERIAL PRIMARY KEY,
-    telegram_chat_id INTEGER NOT NULL,
+    telegram_chat_id BIGINT NOT NULL,
     context          JSONB     DEFAULT '{}',
     created_at       TIMESTAMP DEFAULT current_timestamp,
     updated_at       TIMESTAMP DEFAULT NULL,
@@ -27,7 +27,7 @@ CREATE INDEX chats_chat_id_idx ON chats (telegram_chat_id);
 CREATE TABLE jobs
 (
     id               SERIAL PRIMARY KEY,
-    telegram_chat_id INTEGER      NOT NULL,
+    telegram_chat_id BIGINT     NOT NULL,
     is_recurring     BOOL         NOT NULL,
     river_job_id     BIGINT,
     message          TEXT         NOT NULL,

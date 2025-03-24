@@ -15,7 +15,7 @@ VALUES ($1)
 RETURNING id, telegram_chat_id, context, created_at, updated_at, deleted_at
 `
 
-func (q *Queries) CreateChat(ctx context.Context, telegramChatID int32) (Chat, error) {
+func (q *Queries) CreateChat(ctx context.Context, telegramChatID int64) (Chat, error) {
 	row := q.db.QueryRow(ctx, createChat, telegramChatID)
 	var i Chat
 	err := row.Scan(
@@ -38,11 +38,11 @@ AND deleted_at IS NULL
 
 type GetChatRow struct {
 	ID             int32
-	TelegramChatID int32
+	TelegramChatID int64
 	Context        []byte
 }
 
-func (q *Queries) GetChat(ctx context.Context, telegramChatID int32) (GetChatRow, error) {
+func (q *Queries) GetChat(ctx context.Context, telegramChatID int64) (GetChatRow, error) {
 	row := q.db.QueryRow(ctx, getChat, telegramChatID)
 	var i GetChatRow
 	err := row.Scan(&i.ID, &i.TelegramChatID, &i.Context)
@@ -58,7 +58,7 @@ RETURNING id, telegram_chat_id, context, created_at, updated_at, deleted_at
 
 type UpdateChatContextParams struct {
 	Context        []byte
-	TelegramChatID int32
+	TelegramChatID int64
 }
 
 func (q *Queries) UpdateChatContext(ctx context.Context, arg UpdateChatContextParams) (Chat, error) {

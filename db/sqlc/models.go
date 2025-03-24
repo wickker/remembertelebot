@@ -10,7 +10,7 @@ import (
 
 type Chat struct {
 	ID             int32
-	TelegramChatID int32
+	TelegramChatID int64
 	Context        []byte
 	CreatedAt      pgtype.Timestamp
 	UpdatedAt      pgtype.Timestamp
@@ -19,7 +19,7 @@ type Chat struct {
 
 type Job struct {
 	ID             int32
-	TelegramChatID int32
+	TelegramChatID int64
 	IsRecurring    bool
 	RiverJobID     pgtype.Int8
 	Message        string

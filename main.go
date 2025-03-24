@@ -20,6 +20,7 @@ import (
 
 	"remembertelebot/bot"
 	"remembertelebot/config"
+	"remembertelebot/db/sqlc"
 	"remembertelebot/riverjobs"
 	"remembertelebot/services/commands"
 	"remembertelebot/services/messages"
@@ -35,7 +36,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to connect to database.")
 	}
 	defer pool.Close()
-	//queries := sqlc.New(pool)
+	queries := sqlc.New(pool)
 
 	riverClient := riverjobs.NewClient(envCfg, pool)
 
@@ -47,8 +48,8 @@ func main() {
 	botChannel := botClient.CreateBotChannel()
 	botCtx, botCancel := context.WithCancel(context.Background())
 
-	commandsHandler := commands.NewHandler(botClient)
-	messagesHandler := messages.NewHandler(botClient)
+	commandsHandler := commands.NewHandler(botClient, queries)
+	messagesHandler := messages.NewHandler(botClient, queries)
 
 	// TODO: Figure out how to disable the probe
 	// Need this to pass Google Cloud Run's TCP probe 💀

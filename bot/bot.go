@@ -29,10 +29,21 @@ func (c *Client) CreateBotChannel() tgbotapi.UpdatesChannel {
 	return c.bot.GetUpdatesChan(cfg)
 }
 
-func (c *Client) SendPlainMessage(chatId int64, message string) error {
-	msg := tgbotapi.NewMessage(chatId, message)
+func (c *Client) SendPlainMessage(chatID int64, message string) error {
+	msg := tgbotapi.NewMessage(chatID, message)
 	if _, err := c.bot.Send(msg); err != nil {
 		return fmt.Errorf("bot failed to send plain message [messageConfig: %+v]: %w", msg, err)
+	}
+	return nil
+}
+
+func (c *Client) SendHtmlMessage(chatID int64, text string, markup interface{}) error {
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = tgbotapi.ModeHTML
+	msg.ReplyMarkup = markup
+
+	if _, err := c.bot.Send(msg); err != nil {
+		return fmt.Errorf("bot failed to send html message [messageConfig: %+v]: %w", msg, err)
 	}
 	return nil
 }
