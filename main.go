@@ -3,20 +3,26 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
 	"syscall"
+	"time"
 
 	"github.com/caarlos0/env/v11"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"remembertelebot/bot"
 	"remembertelebot/config"
+	"remembertelebot/riverjobs"
 	"remembertelebot/services/commands"
 	"remembertelebot/services/messages"
 )
@@ -32,6 +38,49 @@ func main() {
 	}
 	defer pool.Close()
 	//queries := sqlc.New(pool)
+
+	riverClient := setupRiverClient(envCfg, pool)
+
+	//j, err := riverClient.Insert(context.Background(),
+	//	ScheduledArgs{
+	//		Message: "hello from the future",
+	//	},
+	//	&river.InsertOpts{
+	//		// Schedule the job to be worked in three hours.
+	//		ScheduledAt: time.Now().Add(1 * time.Minute),
+	//	})
+	//if err != nil {
+	//	panic(err)
+	//}
+	//fmt.Println(j)
+
+	//a := riverClient.PeriodicJobs().Add(river.NewPeriodicJob(
+	//	river.PeriodicInterval(10*time.Second),
+	//	func() (river.JobArgs, *river.InsertOpts) {
+	//		return PeriodicJobArgs{
+	//			Msg: "Every 10 seconds",
+	//		}, nil
+	//	},
+	//	//&river.PeriodicJobOpts{RunOnStart: true},
+	//	nil,
+	//))
+	//fmt.Println("a : ", a)
+	//
+	//b := riverClient.PeriodicJobs().Add(river.NewPeriodicJob(
+	//	river.PeriodicInterval(15*time.Second),
+	//	func() (river.JobArgs, *river.InsertOpts) {
+	//		return PeriodicJobArgs{
+	//			Msg: "Every 15 seconds",
+	//		}, nil
+	//	},
+	//	//&river.PeriodicJobOpts{RunOnStart: true},
+	//	nil,
+	//))
+	//fmt.Println("b : ", b)
+
+	//if _, err := riverClient.JobCancel(context.Background(), 3); err != nil {
+	//	fmt.Println(err)
+	//}
 
 	botClient, err := bot.NewClient(envCfg)
 	if err != nil {
@@ -72,7 +121,7 @@ func main() {
 		}
 	}()
 
-	gracefulShutdown(botCancel)
+	gracefulShutdown(botCancel, riverClient)
 }
 
 func setupLogger() {
@@ -95,11 +144,41 @@ func loadEnv() config.EnvConfig {
 	return envCfg
 }
 
-func gracefulShutdown(botCancel context.CancelFunc) {
+func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pgx.Tx]) {
 	channel := make(chan os.Signal)
 	signal.Notify(channel, syscall.SIGINT, syscall.SIGTERM)
 	<-channel
 
 	log.Info().Msg("Shutting down Telegram bot.")
 	botCancel()
+
+	riverCtx, riverCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer riverCancel()
+	if err := riverClient.StopAndCancel(riverCtx); err != nil {
+		log.Err(err).Msg("Unable to shutdown river client.")
+	}
+}
+
+func setupRiverClient(envCfg config.EnvConfig, pool *pgxpool.Pool) *river.Client[pgx.Tx] {
+	workers := river.NewWorkers()
+	river.AddWorker(workers, &riverjobs.ScheduledJobWorker{})
+	river.AddWorker(workers, &riverjobs.PeriodicJobWorker{})
+
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
+		Logger: slog.Default(),
+		Queues: map[string]river.QueueConfig{
+			river.QueueDefault: {MaxWorkers: 100},
+		},
+		TestOnly: envCfg.IsDev(),
+		Workers:  workers,
+	})
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to initialize new river client.")
+	}
+
+	if err := riverClient.Start(context.Background()); err != nil {
+		log.Fatal().Err(err).Msg("Unable to start river client.")
+	}
+
+	return riverClient
 }
