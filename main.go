@@ -22,6 +22,7 @@ import (
 	"remembertelebot/config"
 	"remembertelebot/db/sqlc"
 	"remembertelebot/riverjobs"
+	"remembertelebot/services/callbackqueries"
 	"remembertelebot/services/commands"
 	"remembertelebot/services/messages"
 )
@@ -50,6 +51,7 @@ func main() {
 
 	commandsHandler := commands.NewHandler(botClient, queries)
 	messagesHandler := messages.NewHandler(botClient, queries)
+	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries)
 
 	// TODO: Figure out how to disable the probe
 	// Need this to pass Google Cloud Run's TCP probe 💀
@@ -74,6 +76,8 @@ func main() {
 					commandsHandler.ProcessCommand(update)
 				} else if update.Message != nil {
 					messagesHandler.ProcessMessage(update.Message)
+				} else if update.CallbackQuery != nil {
+					callbackQueriesHandler.ProcessCallbackQuery(update.CallbackQuery)
 				}
 			}
 		}

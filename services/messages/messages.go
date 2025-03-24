@@ -13,6 +13,7 @@ import (
 
 	"remembertelebot/bot"
 	"remembertelebot/db/sqlc"
+	"remembertelebot/services/callbackqueries"
 )
 
 type Handler struct {
@@ -52,19 +53,18 @@ func (h *Handler) ProcessMessage(message *tgbotapi.Message) {
 	}
 
 	if len(chatContextMap) == 0 {
-		// TODO: Process 1st message
+		h.processJobName(message, chatContextMap)
+		return
 	}
 
-	name, exists := chatContextMap["name"]
-	if exists && len(chatContextMap) == 1 {
+	if name, exists := chatContextMap["name"]; exists && len(chatContextMap) == 1 {
 		fmt.Println(name)
 		// TODO: Process 2nd message
 	}
 
-	isRecurring, exists := chatContextMap["is_recurring"]
-	if exists && len(chatContextMap) == 2 {
+	if isRecurring, exists := chatContextMap["is_recurring"]; exists && len(chatContextMap) == 2 {
 		fmt.Println(isRecurring)
-		// TODO: Process 3rd message
+		// TODO: Process 2nd message
 	}
 
 	h.processDefault(message)
@@ -117,9 +117,9 @@ func (h *Handler) processJobName(message *tgbotapi.Message, contextMap map[strin
 
 	buttons := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Once-off", "scheduled"),
+			tgbotapi.NewInlineKeyboardButtonData("Once-off", callbackqueries.ScheduledQueryData),
 		),
-		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData("Recurring", "periodic")),
+		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData("Recurring", callbackqueries.PeriodicQueryData)),
 	)
 	if err := h.botClient.SendHtmlMessage(message.Chat.ID, "Select job type.", buttons); err != nil {
 		log.Err(err).Msgf("Unable to send html message [telegramChatID: %v].", message.Chat.ID)
