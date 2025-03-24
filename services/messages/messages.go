@@ -21,6 +21,7 @@ func (h *Handler) ProcessMessage(message *tgbotapi.Message) {
 	log.Info().Msgf("Received message from %s: [message: %s][chatID: %v]", message.From.UserName,
 		message.Text, message.Chat.ID)
 
+	// TODO:
 	if err := h.botClient.SendPlainMessage(message.Chat.ID, "Received message."); err != nil {
 		log.Err(err).Msgf("Unable to respond to message [user: %s].", message.From.UserName)
 		return

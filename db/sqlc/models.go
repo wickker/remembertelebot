@@ -16,3 +16,16 @@ type Chat struct {
 	UpdatedAt      pgtype.Timestamp
 	DeletedAt      pgtype.Timestamp
 }
+
+type Job struct {
+	ID             int32
+	TelegramChatID int32
+	IsRecurring    bool
+	RiverJobID     pgtype.Int8
+	Message        string
+	Schedule       string
+	Name           string
+	CreatedAt      pgtype.Timestamp
+	UpdatedAt      pgtype.Timestamp
+	DeletedAt      pgtype.Timestamp
+}
