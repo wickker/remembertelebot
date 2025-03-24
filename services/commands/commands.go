@@ -36,7 +36,7 @@ func (h *Handler) ProcessCommand(update tgbotapi.Update) {
 func (h *Handler) processStart(message *tgbotapi.Message) {
 	// TODO:
 	if err := h.botClient.SendPlainMessage(message.Chat.ID, "Received start."); err != nil {
-		log.Err(err).Msgf("Unable to respond to start command [User: %s].", message.From.UserName)
+		log.Err(err).Msgf("Unable to respond to start command [user: %s].", message.From.UserName)
 		return
 	}
 }
@@ -44,7 +44,7 @@ func (h *Handler) processStart(message *tgbotapi.Message) {
 func (h *Handler) processDefault(message *tgbotapi.Message) {
 	// TODO:
 	if err := h.botClient.SendPlainMessage(message.Chat.ID, "Received unknown command."); err != nil {
-		log.Err(err).Msgf("Unable to respond to unknown command [User: %s].", message.From.UserName)
+		log.Err(err).Msgf("Unable to respond to unknown command [user: %s].", message.From.UserName)
 		return
 	}
 }

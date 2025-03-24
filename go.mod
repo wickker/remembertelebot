@@ -9,7 +9,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/riverqueue/river v0.14.2
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.14.2
-	github.com/riverqueue/river/rivershared v0.14.2
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.33.0
 )
 
@@ -22,6 +22,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/riverqueue/river/riverdriver v0.14.2 // indirect
+	github.com/riverqueue/river/rivershared v0.14.2 // indirect
 	github.com/riverqueue/river/rivertype v0.14.2 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
