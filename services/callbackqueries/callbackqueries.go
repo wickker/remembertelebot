@@ -85,12 +85,18 @@ func (h *Handler) processJobType(query *tgbotapi.CallbackQuery, isRecurring stri
 		return
 	}
 
-	msg := "Please input the UTC date and time that the once-off message should be sent."
+	// show loader
+	_ = h.botClient.SendCallbackConfig(query.ID, "")
+
+	// edit the previous html message with buttons
+	text := "Please input the UTC date and time in the format YYYY-MM-DD HH:MM:SS that the once-off message should be" +
+		" sent."
 	if isRecurring == "true" {
-		msg = "Please input the UTC cron expression that the recurring message should be sent."
+		text = "Please input the UTC cron expression (i.e. * * * * *) that the recurring message should be sent."
 	}
-	if err := h.botClient.SendPlainMessage(query.Message.Chat.ID, msg); err != nil {
-		log.Err(err).Msgf("Unable to send schedule message [user: %s].", query.From.UserName)
+	if err := h.botClient.SendEditMessage(query.Message.Chat.ID, query.Message.MessageID, text); err != nil {
+		log.Err(err).Msgf("Unable to edit html markup to send request for schedule [user: %s].",
+			query.From.UserName)
 		return
 	}
 }

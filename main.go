@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"strings"
 	"syscall"
 	"time"
 
@@ -72,10 +73,12 @@ func main() {
 			case <-botCtx.Done():
 				return
 			case update := <-botChannel:
-				if update.Message.IsCommand() {
-					commandsHandler.ProcessCommand(update)
-				} else if update.Message != nil {
-					messagesHandler.ProcessMessage(update.Message)
+				if update.Message != nil {
+					if isCommand(update.Message.Text) {
+						commandsHandler.ProcessCommand(update)
+					} else {
+						messagesHandler.ProcessMessage(update.Message)
+					}
 				} else if update.CallbackQuery != nil {
 					callbackQueriesHandler.ProcessCallbackQuery(update.CallbackQuery)
 				}
@@ -120,4 +123,9 @@ func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pg
 	if err := riverClient.StopAndCancel(riverCtx); err != nil {
 		log.Err(err).Msg("Unable to shutdown river client.")
 	}
+}
+
+func isCommand(text string) bool {
+	command := strings.TrimSpace(text)
+	return len(command) > 0 && fmt.Sprintf("%c", rune(command[0])) == "/"
 }

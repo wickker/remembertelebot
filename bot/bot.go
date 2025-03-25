@@ -37,6 +37,14 @@ func (c *Client) SendPlainMessage(chatID int64, message string) error {
 	return nil
 }
 
+func (c *Client) SendCallbackConfig(queryID, text string) error {
+	callbackCfg := tgbotapi.NewCallback(queryID, text)
+	if _, err := c.bot.Send(callbackCfg); err != nil {
+		return fmt.Errorf("bot failed to send callback config [callbackConfig: %+v]: %w", callbackCfg, err)
+	}
+	return nil
+}
+
 func (c *Client) SendHtmlMessage(chatID int64, text string, markup interface{}) error {
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = tgbotapi.ModeHTML
@@ -44,6 +52,15 @@ func (c *Client) SendHtmlMessage(chatID int64, text string, markup interface{}) 
 
 	if _, err := c.bot.Send(msg); err != nil {
 		return fmt.Errorf("bot failed to send html message [messageConfig: %+v]: %w", msg, err)
+	}
+	return nil
+}
+
+func (c *Client) SendEditMessage(chatID int64, messageID int, text string) error {
+	msg := tgbotapi.NewEditMessageText(chatID, messageID, text)
+
+	if _, err := c.bot.Send(msg); err != nil {
+		return fmt.Errorf("bot failed to send edit message [messageConfig: %+v]: %w", msg, err)
 	}
 	return nil
 }
