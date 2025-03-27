@@ -33,6 +33,9 @@ github.com/jackc/puddle/v2/internal/genstack
 # github.com/joho/godotenv v1.5.1
 ## explicit; go 1.12
 github.com/joho/godotenv
+# github.com/jsuar/go-cron-descriptor v0.1.0
+## explicit; go 1.13
+github.com/jsuar/go-cron-descriptor/pkg/crondescriptor
 # github.com/mattn/go-colorable v0.1.14
 ## explicit; go 1.18
 github.com/mattn/go-colorable
@@ -107,10 +110,24 @@ github.com/tidwall/pretty
 # github.com/tidwall/sjson v1.2.5
 ## explicit; go 1.14
 github.com/tidwall/sjson
+# go.uber.org/atomic v1.6.0
+## explicit; go 1.13
+go.uber.org/atomic
 # go.uber.org/goleak v1.3.0
 ## explicit; go 1.20
 go.uber.org/goleak
 go.uber.org/goleak/internal/stack
+# go.uber.org/multierr v1.5.0
+## explicit; go 1.12
+go.uber.org/multierr
+# go.uber.org/zap v1.15.0
+## explicit; go 1.13
+go.uber.org/zap
+go.uber.org/zap/buffer
+go.uber.org/zap/internal/bufferpool
+go.uber.org/zap/internal/color
+go.uber.org/zap/internal/exit
+go.uber.org/zap/zapcore
 # golang.org/x/crypto v0.36.0
 ## explicit; go 1.23.0
 golang.org/x/crypto/pbkdf2

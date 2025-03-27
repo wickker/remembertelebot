@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rs/zerolog/log"
@@ -91,13 +90,9 @@ func (h *Handler) processDefault(message *tgbotapi.Message) {
 }
 
 func (h *Handler) processJobName(message *tgbotapi.Message, contextMap map[string]string) {
-	name := strings.TrimSpace(message.Text)
-	if len(name) < 1 {
-		h.sendErrorMessage(errors.New("job name is too short"), message)
-		return
-	}
-	if len(name) > 191 {
-		h.sendErrorMessage(errors.New("job name is too long"), message)
+	name, err := validateJobName(message.Text)
+	if err != nil {
+		h.sendErrorMessage(err, message)
 		return
 	}
 
@@ -125,9 +120,9 @@ func (h *Handler) processJobName(message *tgbotapi.Message, contextMap map[strin
 }
 
 func (h *Handler) processJobMessage(message *tgbotapi.Message, contextMap map[string]string) {
-	text := strings.TrimSpace(message.Text)
-	if len(text) < 1 {
-		h.sendErrorMessage(errors.New("job message is too short"), message)
+	text, err := validateJobMessage(message.Text)
+	if err != nil {
+		h.sendErrorMessage(err, message)
 		return
 	}
 
@@ -162,6 +157,53 @@ func (h *Handler) processJobMessage(message *tgbotapi.Message, contextMap map[st
 }
 
 func (h *Handler) processJobSchedule(message *tgbotapi.Message, contextMap map[string]string) {
-	// validate schedule (once-off or recurring)
+	isRecurring := contextMap["is_recurring"]
+	var (
+		schedule string
+		err      error
+	)
 
+	if isRecurring == "true" {
+		schedule, err = validateCronTab(message.Text)
+		if err != nil {
+			h.sendErrorMessage(err, message)
+			return
+		}
+	} else {
+		ts, err := validateScheduleTimestamp(message.Text)
+		if err != nil {
+			h.sendErrorMessage(err, message)
+			return
+		}
+		schedule = ts.Format(TimestampFormat)
+	}
+
+	contextMap["schedule"] = schedule
+	contextMapBytes, err := json.Marshal(contextMap)
+	if err != nil {
+		log.Err(err).Msgf("Unable to marshal chat context [contextMap: %+v].", contextMap)
+		h.sendErrorMessage(err, message)
+		return
+	}
+
+	if _, err := h.queries.UpdateChatContext(context.Background(), sqlc.UpdateChatContextParams{
+		TelegramChatID: message.Chat.ID,
+		Context:        contextMapBytes,
+	}); err != nil {
+		log.Err(err).Msgf("Unable to update chat context [telegramChatID: %v][context: %+v].", message.Chat.ID, contextMap)
+		h.sendErrorMessage(err, message)
+		return
+	}
+
+	button := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Confirm", callbackqueries.ConfirmJobQueryData),
+		))
+
+	confirmationMsg := generateConfirmationMessage(contextMap)
+	if err := h.botClient.SendHtmlMessage(message.Chat.ID, confirmationMsg, button); err != nil {
+		log.Err(err).Msgf("Unable to send html message [telegramChatID: %v].", message.Chat.ID)
+		h.sendErrorMessage(err, message)
+		return
+	}
 }
