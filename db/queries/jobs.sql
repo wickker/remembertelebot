@@ -2,3 +2,9 @@
 INSERT INTO jobs (telegram_chat_id, is_recurring, message, schedule, name, river_job_id)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
+
+-- name: DeleteJob :one
+UPDATE jobs
+SET deleted_at = NOW()
+WHERE river_job_id = $1
+RETURNING *;

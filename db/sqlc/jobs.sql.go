@@ -50,3 +50,28 @@ func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (Job, erro
 	)
 	return i, err
 }
+
+const deleteJob = `-- name: DeleteJob :one
+UPDATE jobs
+SET deleted_at = NOW()
+WHERE river_job_id = $1
+RETURNING id, telegram_chat_id, is_recurring, river_job_id, message, schedule, name, created_at, updated_at, deleted_at
+`
+
+func (q *Queries) DeleteJob(ctx context.Context, riverJobID pgtype.Int8) (Job, error) {
+	row := q.db.QueryRow(ctx, deleteJob, riverJobID)
+	var i Job
+	err := row.Scan(
+		&i.ID,
+		&i.TelegramChatID,
+		&i.IsRecurring,
+		&i.RiverJobID,
+		&i.Message,
+		&i.Schedule,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}

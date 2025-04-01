@@ -40,12 +40,12 @@ func main() {
 	defer pool.Close()
 	queries := sqlc.New(pool)
 
-	riverClient := riverjobs.NewClient(envCfg, pool)
-
 	botClient, err := bot.NewClient(envCfg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to create bot client.")
 	}
+
+	riverClient := riverjobs.NewClient(envCfg, pool, botClient, queries)
 
 	botChannel := botClient.CreateBotChannel()
 	botCtx, botCancel := context.WithCancel(context.Background())
@@ -86,7 +86,7 @@ func main() {
 		}
 	}()
 
-	gracefulShutdown(botCancel, riverClient.Client)
+	gracefulShutdown(botCancel, riverClient.Client, riverClient.CancelCompletedChannel)
 }
 
 func setupLogger() {
@@ -109,7 +109,8 @@ func loadEnv() config.EnvConfig {
 	return envCfg
 }
 
-func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pgx.Tx]) {
+func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pgx.Tx],
+	cancelRiverCompletedEventSubscription func()) {
 	channel := make(chan os.Signal)
 	signal.Notify(channel, syscall.SIGINT, syscall.SIGTERM)
 	<-channel
@@ -118,6 +119,7 @@ func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pg
 	botCancel()
 
 	log.Info().Msg("Shutting down River client.")
+	defer cancelRiverCompletedEventSubscription()
 	riverCtx, riverCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer riverCancel()
 	if err := riverClient.StopAndCancel(riverCtx); err != nil {

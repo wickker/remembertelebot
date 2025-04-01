@@ -109,7 +109,7 @@ func (h *Handler) processConfirmJob(query *tgbotapi.CallbackQuery) {
 			h.sendErrorMessage(err, query)
 			return
 		}
-		riverJobID, err = h.riverClient.AddScheduledJobTx(tx, chatContextMap["message"], schedule)
+		riverJobID, err = h.riverClient.AddScheduledJobTx(tx, chatContextMap["message"], chat.TelegramChatID, schedule)
 		if err != nil {
 			log.Err(err).Msgf("Unable to add scheduled job to river client [chat: %+v].",
 				chat)
