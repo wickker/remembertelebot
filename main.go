@@ -52,7 +52,7 @@ func main() {
 
 	commandsHandler := commands.NewHandler(botClient, queries)
 	messagesHandler := messages.NewHandler(botClient, queries)
-	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries)
+	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, riverClient, pool)
 
 	// TODO: Figure out how to disable the probe
 	// Need this to pass Google Cloud Run's TCP probe 💀

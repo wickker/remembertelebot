@@ -10,8 +10,6 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-const TimestampFormat = "2006-01-02 15:04:05"
-
 func validateJobName(text string) (string, error) {
 	name := strings.TrimSpace(text)
 	if len(name) < 1 {
@@ -35,7 +33,7 @@ func validateScheduleTimestamp(text string) (time.Time, error) {
 	text = strings.TrimSpace(text)
 	now := time.Now()
 
-	timestamp, err := time.Parse(TimestampFormat, text)
+	timestamp, err := time.Parse(time.DateTime, text)
 	if err != nil {
 		return now, err
 	}
@@ -72,9 +70,11 @@ func generateConfirmationMessage(contextMap map[string]string) string {
 
 	scheduleText := fmt.Sprintf("Once-off, at UTC %s", schedule)
 	if isRecurring == "true" {
-		scheduleText = fmt.Sprintf("Recurring at UTC %s (%s)", schedule, getCronDescriptor(schedule))
+		scheduleText = fmt.Sprintf("Recurring at UTC <b>%s</b> (%s)", schedule, getCronDescriptor(schedule))
 	}
 
-	return fmt.Sprintf("Please confirm the following job details:\n\nJob name: %s\nMessage to send: %s\nSchedule: %s"+
+	return fmt.Sprintf("Please confirm the following job details:\n\n<b>Job name:</b> %s\n<b>Message to send:</b> %s\n<b"+
+		">Schedule"+
+		":</b> %s"+
 		"", name, message, scheduleText)
 }

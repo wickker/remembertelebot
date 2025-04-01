@@ -2,6 +2,7 @@ package riverjobs
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/riverqueue/river"
 )
@@ -17,7 +18,7 @@ type ScheduledJobWorker struct {
 }
 
 func (w *ScheduledJobWorker) Work(ctx context.Context, job *river.Job[ScheduledJobArgs]) error {
-	//fmt.Printf("Message: %s\n", job.Args.Message)
+	fmt.Printf("Message: %s\n", job.Args.Message)
 	// TODO: Send message
 	return nil
 }

@@ -27,14 +27,14 @@ func NewClient(envCfg config.EnvConfig, pool *pgxpool.Pool) *Client {
 	}
 }
 
-func (c *Client) AddScheduledJob(message string, schedule time.Time) (*int64, error) {
-	job, err := c.Client.Insert(context.Background(), ScheduledJobArgs{
+func (c *Client) AddScheduledJobTx(tx pgx.Tx, message string, schedule time.Time) (*int64, error) {
+	job, err := c.Client.InsertTx(context.Background(), tx, ScheduledJobArgs{
 		Message: message,
 	}, &river.InsertOpts{
 		ScheduledAt: schedule,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to add scheduled job [message: %s][schedule: %s]: %w", message,
+		return nil, fmt.Errorf("failed to add scheduled job tx [message: %s][schedule: %s]: %w", message,
 			schedule.String(),
 			err)
 	}

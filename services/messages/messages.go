@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rs/zerolog/log"
@@ -175,7 +176,7 @@ func (h *Handler) processJobSchedule(message *tgbotapi.Message, contextMap map[s
 			h.sendErrorMessage(err, message)
 			return
 		}
-		schedule = ts.Format(TimestampFormat)
+		schedule = ts.Format(time.DateTime)
 	}
 
 	contextMap["schedule"] = schedule
