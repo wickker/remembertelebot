@@ -90,6 +90,8 @@ func (c *Client) CancelPeriodicJob(jobHandle int64) {
 }
 
 func (c *Client) processJobCompletedEvent(subscribeChan <-chan *river.Event) {
+	log.Info().Msg("Subscribed to river job completion event.")
+
 	for {
 		select {
 		case event := <-subscribeChan:
@@ -98,7 +100,8 @@ func (c *Client) processJobCompletedEvent(subscribeChan <-chan *river.Event) {
 				return
 			}
 
-			log.Info().Msgf("Received job completed river event [riverJobID: %v][Kind: %v]", event.Job.ID, event.Job.Kind)
+			log.Info().Msgf("Received river job completed event [riverJobID: %v][Kind: %v]", event.Job.ID,
+				event.Job.Kind)
 
 			if event.Job.Kind == "scheduled" {
 				if _, err := c.queries.DeleteJob(context.Background(), pgtype.Int8{Valid: true,

@@ -21,7 +21,6 @@ type PeriodicJobWorker struct {
 	botClient *bot.Client
 }
 
-// NewPeriodicJobWorker creates a new PeriodicJobWorker with the given bot client
 func NewPeriodicJobWorker(botClient *bot.Client) *PeriodicJobWorker {
 	return &PeriodicJobWorker{
 		botClient: botClient,

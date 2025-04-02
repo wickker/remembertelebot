@@ -21,7 +21,6 @@ type ScheduledJobWorker struct {
 	botClient *bot.Client
 }
 
-// NewScheduledJobWorker creates a new ScheduledJobWorker with the given bot client
 func NewScheduledJobWorker(botClient *bot.Client) *ScheduledJobWorker {
 	return &ScheduledJobWorker{
 		botClient: botClient,
