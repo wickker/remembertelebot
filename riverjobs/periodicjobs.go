@@ -28,8 +28,10 @@ func NewPeriodicJobWorker(botClient *bot.Client) *PeriodicJobWorker {
 }
 
 func (w *PeriodicJobWorker) Work(ctx context.Context, job *river.Job[PeriodicJobArgs]) error {
-	if err := w.botClient.SendPlainMessage(job.Args.ChatID, job.Args.Message); err != nil {
-		return fmt.Errorf("failed to send periodic message [jobArgs: %+v]: %w", job.Args, err)
-	}
+	fmt.Println("Periodic message: ", job.Args.Message)
+
+	//if err := w.botClient.SendPlainMessage(job.Args.ChatID, job.Args.Message); err != nil {
+	//	return fmt.Errorf("failed to send periodic message [jobArgs: %+v]: %w", job.Args, err)
+	//}
 	return nil
 }

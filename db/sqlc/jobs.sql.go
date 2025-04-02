@@ -75,3 +75,78 @@ func (q *Queries) DeleteJob(ctx context.Context, riverJobID pgtype.Int8) (Job, e
 	)
 	return i, err
 }
+
+const getActiveRecurringJobs = `-- name: GetActiveRecurringJobs :many
+SELECT id, telegram_chat_id, is_recurring, message, schedule, name, river_job_id
+FROM jobs
+WHERE is_recurring = true
+AND deleted_at IS NULL
+`
+
+type GetActiveRecurringJobsRow struct {
+	ID             int32
+	TelegramChatID int64
+	IsRecurring    bool
+	Message        string
+	Schedule       string
+	Name           string
+	RiverJobID     pgtype.Int8
+}
+
+func (q *Queries) GetActiveRecurringJobs(ctx context.Context) ([]GetActiveRecurringJobsRow, error) {
+	rows, err := q.db.Query(ctx, getActiveRecurringJobs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetActiveRecurringJobsRow
+	for rows.Next() {
+		var i GetActiveRecurringJobsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TelegramChatID,
+			&i.IsRecurring,
+			&i.Message,
+			&i.Schedule,
+			&i.Name,
+			&i.RiverJobID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateRiverJobID = `-- name: UpdateRiverJobID :one
+UPDATE jobs
+SET river_job_id = $1
+WHERE id = $2
+RETURNING id, telegram_chat_id, is_recurring, river_job_id, message, schedule, name, created_at, updated_at, deleted_at
+`
+
+type UpdateRiverJobIDParams struct {
+	RiverJobID pgtype.Int8
+	ID         int32
+}
+
+func (q *Queries) UpdateRiverJobID(ctx context.Context, arg UpdateRiverJobIDParams) (Job, error) {
+	row := q.db.QueryRow(ctx, updateRiverJobID, arg.RiverJobID, arg.ID)
+	var i Job
+	err := row.Scan(
+		&i.ID,
+		&i.TelegramChatID,
+		&i.IsRecurring,
+		&i.RiverJobID,
+		&i.Message,
+		&i.Schedule,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}

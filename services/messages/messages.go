@@ -29,8 +29,8 @@ func NewHandler(botClient *bot.Client, queries *sqlc.Queries) *Handler {
 }
 
 func (h *Handler) ProcessMessage(message *tgbotapi.Message) {
-	log.Info().Msgf("Received message from %s: [message: %s][chatID: %v]", message.From.UserName,
-		message.Text, message.Chat.ID)
+	log.Info().Msgf("Received message from %s: [message: %s][chatID: %v][sticker: %+v]", message.From.UserName,
+		message.Text, message.Chat.ID, message.Sticker)
 
 	ctx := context.Background()
 	chat, err := h.queries.GetChat(ctx, message.Chat.ID)

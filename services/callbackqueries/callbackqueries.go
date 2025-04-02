@@ -100,7 +100,15 @@ func (h *Handler) processConfirmJob(query *tgbotapi.CallbackQuery) {
 
 	var riverJobID *int64
 	if isRecurring {
-		// TODO:
+		riverJobID, err = h.riverClient.AddPeriodicJob(chatContextMap["message"], chat.TelegramChatID,
+			chatContextMap["schedule"])
+		if err != nil {
+			log.Err(err).Msgf("Unable to add periodic job to river client [chat: %+v].",
+				chat)
+			h.sendErrorMessage(err, query)
+			return
+		}
+
 	} else {
 		schedule, err := time.Parse(time.DateTime, chatContextMap["schedule"])
 		if err != nil {

@@ -37,6 +37,8 @@ func NewClient(envCfg config.EnvConfig, pool *pgxpool.Pool, botClient *bot.Clien
 
 	go riverClient.processJobCompletedEvent(completedChannel)
 
+	riverClient.addPeriodicJobsOnStartUp()
+
 	return riverClient
 }
 
@@ -89,25 +91,47 @@ func (c *Client) CancelPeriodicJob(jobHandle int64) {
 	c.Client.PeriodicJobs().Remove(rivertype.PeriodicJobHandle(jobHandleInt))
 }
 
+func (c *Client) addPeriodicJobsOnStartUp() {
+	jobs, err := c.queries.GetActiveRecurringJobs(context.Background())
+	if err != nil {
+		log.Err(err).Msg("Unable to get active recurring jobs.")
+		return
+	}
+
+	for _, job := range jobs {
+		riverJobID, err := c.AddPeriodicJob(job.Message, job.TelegramChatID, job.Schedule)
+		if err != nil {
+			log.Err(err).Msgf("Unable to add periodic job on service start [job: %+v].", job)
+			continue
+		}
+
+		if _, err := c.queries.UpdateRiverJobID(context.Background(), sqlc.UpdateRiverJobIDParams{
+			RiverJobID: pgtype.Int8{Valid: true, Int64: *riverJobID},
+			ID:         job.ID,
+		}); err != nil {
+			log.Err(err).Msgf("Unable to update river job ID [jobID: %v][riverJobID: %v].", job.ID, *riverJobID)
+		}
+	}
+
+	log.Info().Msgf("Added %v periodic job(s) on service start up.", len(jobs))
+}
+
 func (c *Client) processJobCompletedEvent(subscribeChan <-chan *river.Event) {
 	log.Info().Msg("Subscribed to river job completion event.")
 
-	for {
-		select {
-		case event := <-subscribeChan:
-			if event == nil {
-				log.Info().Msg("River job completion event channel is closed.")
-				return
-			}
+	for event := range subscribeChan {
+		if event == nil {
+			log.Info().Msg("River job completion event channel is closed.")
+			return
+		}
 
-			log.Info().Msgf("Received river job completed event [riverJobID: %v][Kind: %v]", event.Job.ID,
-				event.Job.Kind)
+		log.Info().Msgf("Received river job completed event [riverJobID: %v][Kind: %v]", event.Job.ID,
+			event.Job.Kind)
 
-			if event.Job.Kind == "scheduled" {
-				if _, err := c.queries.DeleteJob(context.Background(), pgtype.Int8{Valid: true,
-					Int64: event.Job.ID}); err != nil {
-					log.Err(err).Msgf("Unable to delete scheduled job [riverJobID: %v].", event.Job.ID)
-				}
+		if event.Job.Kind == "scheduled" {
+			if _, err := c.queries.DeleteJob(context.Background(), pgtype.Int8{Valid: true,
+				Int64: event.Job.ID}); err != nil {
+				log.Err(err).Msgf("Unable to delete scheduled job [riverJobID: %v].", event.Job.ID)
 			}
 		}
 	}

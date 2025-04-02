@@ -8,3 +8,15 @@ UPDATE jobs
 SET deleted_at = NOW()
 WHERE river_job_id = $1
 RETURNING *;
+
+-- name: GetActiveRecurringJobs :many
+SELECT id, telegram_chat_id, is_recurring, message, schedule, name, river_job_id
+FROM jobs
+WHERE is_recurring = true
+AND deleted_at IS NULL;
+
+-- name: UpdateRiverJobID :one
+UPDATE jobs
+SET river_job_id = $1
+WHERE id = $2
+RETURNING *;

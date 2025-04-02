@@ -111,7 +111,7 @@ func loadEnv() config.EnvConfig {
 
 func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pgx.Tx],
 	cancelRiverCompletedEventSubscription func()) {
-	channel := make(chan os.Signal)
+	channel := make(chan os.Signal, 1)
 	signal.Notify(channel, syscall.SIGINT, syscall.SIGTERM)
 	<-channel
 
