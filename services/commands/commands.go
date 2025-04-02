@@ -57,8 +57,23 @@ func (h *Handler) ProcessCommand(update tgbotapi.Update) {
 }
 
 func (h *Handler) processStart(message *tgbotapi.Message) {
-	// TODO: Change this to return list of commands
-	if err := h.botClient.SendPlainMessage(message.Chat.ID, "Received start."); err != nil {
+	startText := "Welcome to RememberOrDismember! 🐟\n\n" +
+		"Are you tired of having a goldfish memory? Well, you're in luck! I'm here to help you remember things, " +
+		"or else... *sharpens virtual knife* 🗡️\n\n" +
+		"Whether it's a one-time task or something you need to be reminded of regularly, I'll make sure you don't forget. " +
+		"Because if you do... well, let's just say I have a very creative way of helping people remember things.\n\n" +
+		"There are two types of reminders you can set:\n" +
+		"1. Once-off reminders - Perfect for one-time tasks or events (or else...)\n" +
+		"2. Recurring reminders - Great for regular tasks that need to be done periodically (or you'll be dismembered periodically)\n\n" +
+		"Available commands:\n" +
+		"/start - Show this help menu\n" +
+		"/newjob - Create a new reminder job\n" +
+		"/listjobs - List all your active reminder jobs\n" +
+		"/canceljob-<jobID> - Cancel a specific job (e.g. /canceljob-123)\n\n" +
+		"To create a new job, use /newjob and follow the prompts to set up your reminder. " +
+		"Remember, I'm watching... always watching... 👀"
+
+	if err := h.botClient.SendPlainMessage(message.Chat.ID, startText); err != nil {
 		log.Err(err).Msgf("Unable to respond to /start command [user: %s].", message.From.UserName)
 		return
 	}
@@ -141,7 +156,9 @@ func (h *Handler) processListJobs(message *tgbotapi.Message) {
 		jobsText += jobText
 	}
 
-	jobsText += "To cancel a job, input the command /canceljob-<jobID> where jobID is the ID of the job you want to cancel. For example, if jobID is 123, you would input /canceljob-123."
+	jobsText += "To cancel a job, " +
+		"input the command /canceljob-<jobID> where jobID is the ID of the job you want to cancel.\n\nFor example, " +
+		"if jobID is 123, you would input /canceljob-123."
 
 	if err := h.botClient.SendPlainMessage(message.Chat.ID, jobsText); err != nil {
 		log.Err(err).Msgf("Unable to respond to /listjobs command [user: %s].", message.From.UserName)
