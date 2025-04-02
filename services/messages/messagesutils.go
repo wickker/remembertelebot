@@ -53,7 +53,7 @@ func validateCronTab(text string) (string, error) {
 	return text, nil
 }
 
-func getCronDescriptor(cronTab string) string {
+func GetCronDescriptor(cronTab string) string {
 	cd, _ := crondescriptor.NewCronDescriptor(cronTab)
 	if cd != nil {
 		description, _ := cd.GetDescription(crondescriptor.Full)
@@ -70,7 +70,7 @@ func generateConfirmationMessage(contextMap map[string]string) string {
 
 	scheduleText := fmt.Sprintf("Once-off, at UTC %s", schedule)
 	if isRecurring == "true" {
-		scheduleText = fmt.Sprintf("Recurring at UTC <b>%s</b> (%s)", schedule, getCronDescriptor(schedule))
+		scheduleText = fmt.Sprintf("Recurring at UTC <b>%s</b> (%s)", schedule, GetCronDescriptor(schedule))
 	}
 
 	return fmt.Sprintf("Please confirm the following job details:\n\n<b>Job name:</b> %s\n<b>Message to send:</b> %s\n<b"+

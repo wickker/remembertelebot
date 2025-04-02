@@ -50,7 +50,7 @@ func main() {
 	botChannel := botClient.CreateBotChannel()
 	botCtx, botCancel := context.WithCancel(context.Background())
 
-	commandsHandler := commands.NewHandler(botClient, queries)
+	commandsHandler := commands.NewHandler(botClient, queries, riverClient)
 	messagesHandler := messages.NewHandler(botClient, queries)
 	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, riverClient, pool)
 

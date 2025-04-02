@@ -129,7 +129,7 @@ func (c *Client) processJobCompletedEvent(subscribeChan <-chan *river.Event) {
 			event.Job.Kind)
 
 		if event.Job.Kind == "scheduled" {
-			if _, err := c.queries.DeleteJob(context.Background(), pgtype.Int8{Valid: true,
+			if _, err := c.queries.DeleteScheduledJobByRiverJobID(context.Background(), pgtype.Int8{Valid: true,
 				Int64: event.Job.ID}); err != nil {
 				log.Err(err).Msgf("Unable to delete scheduled job [riverJobID: %v].", event.Job.ID)
 			}
