@@ -146,19 +146,23 @@ func (h *Handler) processListJobs(message *tgbotapi.Message) {
 	}
 
 	var jobsText string
-	for _, job := range jobs {
-		scheduleText := fmt.Sprintf("Once-off, at UTC %s", job.Schedule)
-		if job.IsRecurring {
-			scheduleText = fmt.Sprintf("Recurring at UTC %s (%s)", job.Schedule, messages.GetCronDescriptor(job.Schedule))
+	if len(jobs) == 0 {
+		jobsText = "You have no jobs yet. Input /newjob to create a new job."
+	} else {
+		for _, job := range jobs {
+			scheduleText := fmt.Sprintf("Once-off, at UTC %s", job.Schedule)
+			if job.IsRecurring {
+				scheduleText = fmt.Sprintf("Recurring at UTC %s (%s)", job.Schedule, messages.GetCronDescriptor(job.Schedule))
+			}
+
+			jobText := fmt.Sprintf("Job ID: %v\nJob name: %s\nMessage: %s\nSchedule: %s\n\n", job.ID, job.Name, job.Message, scheduleText)
+			jobsText += jobText
 		}
 
-		jobText := fmt.Sprintf("Job ID: %v\nJob name: %s\nMessage: %s\nSchedule: %s\n\n", job.ID, job.Name, job.Message, scheduleText)
-		jobsText += jobText
+		jobsText += "To cancel a job, " +
+			"input the command /canceljob-<jobID> where jobID is the ID of the job you want to cancel.\n\nFor example, " +
+			"if jobID is 123, you would input /canceljob-123."
 	}
-
-	jobsText += "To cancel a job, " +
-		"input the command /canceljob-<jobID> where jobID is the ID of the job you want to cancel.\n\nFor example, " +
-		"if jobID is 123, you would input /canceljob-123."
 
 	if err := h.botClient.SendPlainMessage(message.Chat.ID, jobsText); err != nil {
 		log.Err(err).Msgf("Unable to respond to /listjobs command [user: %s].", message.From.UserName)
