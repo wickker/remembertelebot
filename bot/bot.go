@@ -9,7 +9,8 @@ import (
 )
 
 type Client struct {
-	bot *tgbotapi.BotAPI
+	bot            *tgbotapi.BotAPI
+	UpdatesChannel tgbotapi.UpdatesChannel
 }
 
 func NewClient(envCfg config.EnvConfig) (*Client, error) {
@@ -26,9 +27,11 @@ func NewClient(envCfg config.EnvConfig) (*Client, error) {
 	if _, err := bot.Request(webhook); err != nil {
 		return nil, err
 	}
+	updates := bot.ListenForWebhook("/webhooks")
 
 	return &Client{
-		bot: bot,
+		bot:            bot,
+		UpdatesChannel: updates,
 	}, nil
 }
 

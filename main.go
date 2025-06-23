@@ -52,7 +52,6 @@ func main() {
 	messagesHandler := messages.NewHandler(botClient, queries)
 	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, riverClient, pool)
 
-	updates := botClient.Bot.ListenForWebhook("/webhooks")
 	server := &http.Server{
 		Addr:    ":9000",
 		Handler: nil,
@@ -63,7 +62,7 @@ func main() {
 		}
 	}()
 
-	for update := range updates {
+	for update := range botClient.UpdatesChannel {
 		if update.Message != nil {
 			if isCommand(update.Message.Text) {
 				commandsHandler.ProcessCommand(update)
