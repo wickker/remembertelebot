@@ -9,7 +9,7 @@ import (
 )
 
 type Client struct {
-	Bot *tgbotapi.BotAPI
+	bot *tgbotapi.BotAPI
 }
 
 func NewClient(envCfg config.EnvConfig) (*Client, error) {
@@ -28,7 +28,7 @@ func NewClient(envCfg config.EnvConfig) (*Client, error) {
 	}
 
 	return &Client{
-		Bot: bot,
+		bot: bot,
 	}, nil
 }
 
@@ -41,7 +41,7 @@ func NewClient(envCfg config.EnvConfig) (*Client, error) {
 
 func (c *Client) SendPlainMessage(chatID int64, message string) error {
 	msg := tgbotapi.NewMessage(chatID, message)
-	if _, err := c.Bot.Send(msg); err != nil {
+	if _, err := c.bot.Send(msg); err != nil {
 		return fmt.Errorf("bot failed to send plain message [messageConfig: %+v]: %w", msg, err)
 	}
 	return nil
@@ -49,7 +49,7 @@ func (c *Client) SendPlainMessage(chatID int64, message string) error {
 
 func (c *Client) SendCallbackConfig(queryID, text string) error {
 	callbackCfg := tgbotapi.NewCallback(queryID, text)
-	if _, err := c.Bot.Send(callbackCfg); err != nil {
+	if _, err := c.bot.Send(callbackCfg); err != nil {
 		return fmt.Errorf("bot failed to send callback config [callbackConfig: %+v]: %w", callbackCfg, err)
 	}
 	return nil
@@ -60,7 +60,7 @@ func (c *Client) SendHtmlMessage(chatID int64, text string, markup interface{}) 
 	msg.ParseMode = tgbotapi.ModeHTML
 	msg.ReplyMarkup = markup
 
-	if _, err := c.Bot.Send(msg); err != nil {
+	if _, err := c.bot.Send(msg); err != nil {
 		return fmt.Errorf("bot failed to send html message [messageConfig: %+v]: %w", msg, err)
 	}
 	return nil
@@ -69,7 +69,7 @@ func (c *Client) SendHtmlMessage(chatID int64, text string, markup interface{}) 
 func (c *Client) SendEditMessage(chatID int64, messageID int, text string) error {
 	msg := tgbotapi.NewEditMessageText(chatID, messageID, text)
 
-	if _, err := c.Bot.Send(msg); err != nil {
+	if _, err := c.bot.Send(msg); err != nil {
 		return fmt.Errorf("bot failed to send edit message [messageConfig: %+v]: %w", msg, err)
 	}
 	return nil
