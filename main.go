@@ -44,49 +44,37 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to create bot client.")
 	}
+	_, botCancel := context.WithCancel(context.Background())
 
 	riverClient := riverjobs.NewClient(envCfg, pool, botClient, queries)
-
-	botChannel := botClient.CreateBotChannel()
-	botCtx, botCancel := context.WithCancel(context.Background())
 
 	commandsHandler := commands.NewHandler(botClient, queries, riverClient)
 	messagesHandler := messages.NewHandler(botClient, queries)
 	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, riverClient, pool)
 
-	// TODO: Figure out how to disable the probe
-	// Need this to pass Google Cloud Run's TCP probe 💀
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintf(w, "Remember bot is up!")
-	})
+	server := &http.Server{
+		Addr:    ":9000",
+		Handler: nil,
+	}
 	go func() {
-		if err := http.ListenAndServe(":8080", nil); err != nil {
+		if err := server.ListenAndServe(); err != nil {
 			log.Fatal().Err(err).Msg("Unable to start server.")
 		}
 	}()
 
-	go func() {
-		log.Info().Msg("Bot is alive and listening.")
-
-		for {
-			select {
-			case <-botCtx.Done():
-				return
-			case update := <-botChannel:
-				if update.Message != nil {
-					if isCommand(update.Message.Text) {
-						commandsHandler.ProcessCommand(update)
-					} else {
-						messagesHandler.ProcessMessage(update.Message)
-					}
-				} else if update.CallbackQuery != nil {
-					callbackQueriesHandler.ProcessCallbackQuery(update.CallbackQuery)
-				}
+	for update := range botClient.UpdatesChannel {
+		if update.Message != nil {
+			if isCommand(update.Message.Text) {
+				commandsHandler.ProcessCommand(update)
+			} else {
+				messagesHandler.ProcessMessage(update.Message)
 			}
+		} else if update.CallbackQuery != nil {
+			callbackQueriesHandler.ProcessCallbackQuery(update.CallbackQuery)
 		}
-	}()
+	}
 
-	gracefulShutdown(botCancel, riverClient.Client, riverClient.CancelCompletedChannel)
+	gracefulShutdown(botCancel, riverClient.Client, riverClient.CancelCompletedChannel, server)
 }
 
 func setupLogger() {
@@ -110,7 +98,7 @@ func loadEnv() config.EnvConfig {
 }
 
 func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pgx.Tx],
-	cancelRiverCompletedEventSubscription func()) {
+	cancelRiverCompletedEventSubscription func(), server *http.Server) {
 	channel := make(chan os.Signal, 1)
 	signal.Notify(channel, syscall.SIGINT, syscall.SIGTERM)
 	<-channel
@@ -120,10 +108,15 @@ func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pg
 
 	log.Info().Msg("Shutting down River client.")
 	defer cancelRiverCompletedEventSubscription()
-	riverCtx, riverCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer riverCancel()
-	if err := riverClient.StopAndCancel(riverCtx); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := riverClient.StopAndCancel(ctx); err != nil {
 		log.Err(err).Msg("Unable to shutdown river client.")
+	}
+
+	log.Info().Msg("Shutting down http server.")
+	if err := server.Shutdown(ctx); err != nil {
+		log.Err(err).Msg("Server forced to shutdown.")
 	}
 }
 

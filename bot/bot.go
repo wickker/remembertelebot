@@ -9,7 +9,8 @@ import (
 )
 
 type Client struct {
-	bot *tgbotapi.BotAPI
+	bot            *tgbotapi.BotAPI
+	UpdatesChannel tgbotapi.UpdatesChannel
 }
 
 func NewClient(envCfg config.EnvConfig) (*Client, error) {
@@ -17,17 +18,29 @@ func NewClient(envCfg config.EnvConfig) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	bot.Debug = envCfg.IsDev()
+
+	webhook, err := tgbotapi.NewWebhook(fmt.Sprintf("%s/webhooks", envCfg.BaseURL))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := bot.Request(webhook); err != nil {
+		return nil, err
+	}
+	updates := bot.ListenForWebhook("/webhooks")
 
 	return &Client{
-		bot: bot,
+		bot:            bot,
+		UpdatesChannel: updates,
 	}, nil
 }
 
-func (c *Client) CreateBotChannel() tgbotapi.UpdatesChannel {
-	cfg := tgbotapi.NewUpdate(0)
-	cfg.Timeout = 60
-	return c.bot.GetUpdatesChan(cfg)
-}
+// Old implementation for reference:
+//func (c *Client) CreateBotChannel() tgbotapi.UpdatesChannel {
+//	cfg := tgbotapi.NewUpdate(0)
+//	cfg.Timeout = 60
+//	return c.Bot.GetUpdatesChan(cfg)
+//}
 
 func (c *Client) SendPlainMessage(chatID int64, message string) error {
 	msg := tgbotapi.NewMessage(chatID, message)
