@@ -1,6 +1,11 @@
 # github.com/caarlos0/env/v11 v11.3.1
 ## explicit; go 1.18
 github.com/caarlos0/env/v11
+# github.com/cohesion-org/deepseek-go v1.3.2
+## explicit; go 1.24.0
+github.com/cohesion-org/deepseek-go
+github.com/cohesion-org/deepseek-go/constants
+github.com/cohesion-org/deepseek-go/utils
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -42,6 +47,13 @@ github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.20
 ## explicit; go 1.15
 github.com/mattn/go-isatty
+# github.com/ollama/ollama v0.6.5
+## explicit; go 1.24.0
+github.com/ollama/ollama/api
+github.com/ollama/ollama/envconfig
+github.com/ollama/ollama/format
+github.com/ollama/ollama/types/model
+github.com/ollama/ollama/version
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
@@ -94,9 +106,10 @@ github.com/rs/zerolog
 github.com/rs/zerolog/internal/cbor
 github.com/rs/zerolog/internal/json
 github.com/rs/zerolog/log
-# github.com/stretchr/testify v1.9.0
+# github.com/stretchr/testify v1.10.0
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
+github.com/stretchr/testify/assert/yaml
 github.com/stretchr/testify/require
 # github.com/tidwall/gjson v1.18.0
 ## explicit; go 1.12

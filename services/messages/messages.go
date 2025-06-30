@@ -167,6 +167,7 @@ func (h *Handler) processJobSchedule(message *tgbotapi.Message, contextMap map[s
 	if isRecurring == "true" {
 		schedule, err = validateCronTab(message.Text)
 		if err != nil {
+			// TODO:
 			h.sendErrorMessage(err, message)
 			return
 		}
