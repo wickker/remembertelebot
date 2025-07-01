@@ -23,6 +23,7 @@ import (
 	"remembertelebot/bot"
 	"remembertelebot/config"
 	"remembertelebot/db/sqlc"
+	"remembertelebot/deepseekai"
 	"remembertelebot/ristrettocache"
 	"remembertelebot/riverjobs"
 	"remembertelebot/services/callbackqueries"
@@ -56,8 +57,10 @@ func main() {
 	}
 	defer cache.Cache.Close()
 
+	deepSeekClient := deepseekai.NewClient(envCfg.DeepSeekAPIKey)
+
 	commandsHandler := commands.NewHandler(botClient, queries, riverClient)
-	messagesHandler := messages.NewHandler(botClient, queries)
+	messagesHandler := messages.NewHandler(botClient, queries, deepSeekClient, cache)
 	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, riverClient, pool)
 
 	server := &http.Server{
