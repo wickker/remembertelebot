@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v11"
+	"github.com/cohesion-org/deepseek-go"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -22,6 +23,8 @@ import (
 	"remembertelebot/bot"
 	"remembertelebot/config"
 	"remembertelebot/db/sqlc"
+	"remembertelebot/deepseekai"
+	"remembertelebot/ristrettocache"
 	"remembertelebot/riverjobs"
 	"remembertelebot/services/callbackqueries"
 	"remembertelebot/services/commands"
@@ -42,14 +45,22 @@ func main() {
 
 	botClient, err := bot.NewClient(envCfg)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Unable to create bot client.")
+		log.Fatal().Err(err).Msg("Unable to create telegram bot client.")
 	}
 	_, botCancel := context.WithCancel(context.Background())
 
 	riverClient := riverjobs.NewClient(envCfg, pool, botClient, queries)
 
-	commandsHandler := commands.NewHandler(botClient, queries, riverClient)
-	messagesHandler := messages.NewHandler(botClient, queries)
+	cache, err := ristrettocache.NewCache[[]deepseek.ChatCompletionMessage]()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to create ristretto cache.")
+	}
+	defer cache.Cache.Close()
+
+	deepSeekClient := deepseekai.NewClient(envCfg.DeepSeekAPIKey)
+
+	commandsHandler := commands.NewHandler(botClient, queries, riverClient, cache)
+	messagesHandler := messages.NewHandler(botClient, queries, deepSeekClient, cache)
 	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, riverClient, pool)
 
 	server := &http.Server{

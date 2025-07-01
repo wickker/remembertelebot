@@ -8,23 +8,31 @@ import (
 	"fmt"
 	"time"
 
+	deepseek "github.com/cohesion-org/deepseek-go"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rs/zerolog/log"
 
 	"remembertelebot/bot"
 	"remembertelebot/db/sqlc"
+	"remembertelebot/deepseekai"
+	"remembertelebot/ristrettocache"
 	"remembertelebot/services/callbackqueries"
 )
 
 type Handler struct {
-	botClient *bot.Client
-	queries   *sqlc.Queries
+	botClient      *bot.Client
+	queries        *sqlc.Queries
+	deepSeekClient *deepseekai.Client
+	cache          *ristrettocache.Cache[[]deepseek.ChatCompletionMessage]
 }
 
-func NewHandler(botClient *bot.Client, queries *sqlc.Queries) *Handler {
+func NewHandler(botClient *bot.Client, queries *sqlc.Queries, deepSeekClient *deepseekai.Client,
+	cache *ristrettocache.Cache[[]deepseek.ChatCompletionMessage]) *Handler {
 	return &Handler{
-		botClient: botClient,
-		queries:   queries,
+		botClient:      botClient,
+		queries:        queries,
+		deepSeekClient: deepSeekClient,
+		cache:          cache,
 	}
 }
 
@@ -41,7 +49,12 @@ func (h *Handler) ProcessMessage(message *tgbotapi.Message) {
 	}
 
 	if errors.Is(err, sql.ErrNoRows) {
-		h.processDefault(message)
+		h.processDefault(message, "Unable to trace message context.")
+		return
+	}
+
+	if message.Text == "" {
+		h.processDefault(message, "Message format not recognised.")
 		return
 	}
 
@@ -70,7 +83,7 @@ func (h *Handler) ProcessMessage(message *tgbotapi.Message) {
 		return
 	}
 
-	h.processDefault(message)
+	h.processDefault(message, "Unable to trace message context.")
 }
 
 func (h *Handler) sendErrorMessage(err error, message *tgbotapi.Message) {
@@ -81,10 +94,10 @@ func (h *Handler) sendErrorMessage(err error, message *tgbotapi.Message) {
 	}
 }
 
-func (h *Handler) processDefault(message *tgbotapi.Message) {
-	if err := h.botClient.SendPlainMessage(message.Chat.ID, "Unable to trace message context."+
-		"\n\nDid you mean to enter a command? Please input /start to view the list of available commands."+
-		""); err != nil {
+func (h *Handler) processDefault(message *tgbotapi.Message, displayMessage string) {
+	if err := h.botClient.SendPlainMessage(message.Chat.ID,
+		fmt.Sprintf("%s\n\nDid you mean to enter a command? Please input /start to view the list of available"+
+			" commands.", displayMessage)); err != nil {
 		log.Err(err).Msgf("Unable to respond to unknown message context [user: %s].", message.From.UserName)
 		return
 	}
@@ -167,9 +180,13 @@ func (h *Handler) processJobSchedule(message *tgbotapi.Message, contextMap map[s
 	if isRecurring == "true" {
 		schedule, err = validateCronTab(message.Text)
 		if err != nil {
-			h.sendErrorMessage(err, message)
-			return
+			aiSchedule := h.useAI(message)
+			if aiSchedule == "" {
+				return
+			}
+			schedule = aiSchedule
 		}
+
 	} else {
 		ts, err := validateScheduleTimestamp(message.Text)
 		if err != nil {

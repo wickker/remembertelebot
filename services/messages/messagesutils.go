@@ -6,8 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cohesion-org/deepseek-go"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/jsuar/go-cron-descriptor/pkg/crondescriptor"
 	"github.com/robfig/cron/v3"
+	"github.com/rs/zerolog/log"
+
+	"remembertelebot/deepseekai"
 )
 
 func validateJobName(text string) (string, error) {
@@ -77,4 +82,61 @@ func generateConfirmationMessage(contextMap map[string]string) string {
 		">Schedule"+
 		":</b> %s"+
 		"", name, message, scheduleText)
+}
+
+func (h *Handler) useAI(message *tgbotapi.Message) string {
+	cacheKey := fmt.Sprintf("%d", message.Chat.ID)
+	value, err := h.cache.Get(cacheKey)
+	if err != nil {
+		log.Warn().Err(err).Msgf("Unable to get cache key [cacheKey: %s].", cacheKey)
+	}
+	newMessage := deepseek.ChatCompletionMessage{
+		Role:    deepseek.ChatMessageRoleUser,
+		Content: message.Text,
+	}
+
+	// formulate messages array (depending on cache hit)
+	messages := []deepseek.ChatCompletionMessage{{
+		Role:    deepseek.ChatMessageRoleSystem,
+		Content: deepseekai.Prompt,
+	},
+		newMessage,
+	}
+	if len(value) > 0 {
+		messages = append(value, newMessage)
+	}
+
+	// get AI response to user
+	aiResponse, err := h.deepSeekClient.Converse(messages)
+	if err != nil {
+		h.sendErrorMessage(err, message)
+		return ""
+	}
+
+	// parse AI response
+	if strings.Contains(aiResponse.Content, "final cron is ") {
+		cronTab := strings.ReplaceAll(aiResponse.Content, "final cron is ", "")
+		cronTab = strings.ReplaceAll(cronTab, "`", "")
+		schedule, err := validateCronTab(cronTab)
+		if err == nil {
+			h.cache.Delete(cacheKey)
+			return schedule
+		}
+	}
+
+	// send AI response to user
+	if err := h.botClient.SendPlainMessage(message.Chat.ID, aiResponse.Content); err != nil {
+		h.sendErrorMessage(err, message)
+	}
+
+	// cache messages
+	messages = append(messages, deepseek.ChatCompletionMessage{
+		Role:    aiResponse.Role,
+		Content: aiResponse.Content,
+	})
+	if err := h.cache.Set(cacheKey, messages); err != nil {
+		log.Warn().Err(err).Msg("Unable to set cache.")
+	}
+
+	return ""
 }

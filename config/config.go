@@ -7,6 +7,7 @@ type EnvConfig struct {
 	DatabaseURL      string `env:"DATABASE_URL"`
 	TelegramBotToken string `env:"TELEGRAM_BOT_TOKEN"`
 	BaseURL          string `env:"BASE_URL"`
+	DeepSeekAPIKey   string `env:"DEEP_SEEK_API_KEY"`
 }
 
 func (c EnvConfig) IsDev() bool {
