@@ -29,7 +29,7 @@ func (c *Client) NewThread(userMessage string) (*deepseek.Message, error) {
 	}
 	response, err := c.client.CreateChatCompletion(context.Background(), request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new DeepSeek thread: %+v", err)
+		return nil, fmt.Errorf("failed to create new DeepSeek thread: %w", err)
 	}
 	return &response.Choices[0].Message, nil
 }
