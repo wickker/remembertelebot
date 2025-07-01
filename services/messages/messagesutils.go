@@ -116,9 +116,10 @@ func (h *Handler) useAI(message *tgbotapi.Message) string {
 	// parse AI response
 	if strings.Contains(aiResponse.Content, "final cron is ") {
 		cronTab := strings.ReplaceAll(aiResponse.Content, "final cron is ", "")
+		cronTab = strings.ReplaceAll(cronTab, "`", "")
 		schedule, err := validateCronTab(cronTab)
 		if err == nil {
-			// clear cache
+			h.cache.Delete(cacheKey)
 			return schedule
 		}
 	}

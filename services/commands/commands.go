@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cohesion-org/deepseek-go"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rs/zerolog/log"
 
 	"remembertelebot/bot"
 	"remembertelebot/db/sqlc"
+	"remembertelebot/ristrettocache"
 	"remembertelebot/riverjobs"
 	"remembertelebot/services/messages"
 )
@@ -27,19 +29,24 @@ type Handler struct {
 	botClient   *bot.Client
 	queries     *sqlc.Queries
 	riverClient *riverjobs.Client
+	cache       *ristrettocache.Cache[[]deepseek.ChatCompletionMessage]
 }
 
-func NewHandler(botClient *bot.Client, queries *sqlc.Queries, riverClient *riverjobs.Client) *Handler {
+func NewHandler(botClient *bot.Client, queries *sqlc.Queries, riverClient *riverjobs.Client, cache *ristrettocache.Cache[[]deepseek.ChatCompletionMessage]) *Handler {
 	return &Handler{
 		botClient:   botClient,
 		queries:     queries,
 		riverClient: riverClient,
+		cache:       cache,
 	}
 }
 
 func (h *Handler) ProcessCommand(update tgbotapi.Update) {
 	log.Info().Msgf("Received command from %s: [command: %s][chatID: %v]", update.Message.From.UserName,
 		update.Message.Command(), update.Message.Chat.ID)
+
+	// clear AI conversation cache
+	h.cache.Delete(fmt.Sprintf("%d", update.Message.Chat.ID))
 
 	command := update.Message.Command()
 	switch {

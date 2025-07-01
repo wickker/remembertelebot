@@ -59,7 +59,7 @@ func main() {
 
 	deepSeekClient := deepseekai.NewClient(envCfg.DeepSeekAPIKey)
 
-	commandsHandler := commands.NewHandler(botClient, queries, riverClient)
+	commandsHandler := commands.NewHandler(botClient, queries, riverClient, cache)
 	messagesHandler := messages.NewHandler(botClient, queries, deepSeekClient, cache)
 	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, riverClient, pool)
 
