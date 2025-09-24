@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,19 +14,18 @@ import (
 
 	"github.com/caarlos0/env/v11"
 	"github.com/cohesion-org/deepseek-go"
-	"github.com/jackc/pgx/v5"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
-	"github.com/riverqueue/river"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"remembertelebot/asynqjobs"
 	"remembertelebot/bot"
 	"remembertelebot/config"
 	"remembertelebot/db/sqlc"
 	"remembertelebot/deepseekai"
 	"remembertelebot/ristrettocache"
-	"remembertelebot/riverjobs"
 	"remembertelebot/services/callbackqueries"
 	"remembertelebot/services/commands"
 	"remembertelebot/services/messages"
@@ -49,7 +49,37 @@ func main() {
 	}
 	_, botCancel := context.WithCancel(context.Background())
 
-	riverClient := riverjobs.NewClient(envCfg, pool, botClient, queries)
+	//riverClient := riverjobs.NewClient(envCfg, pool, botClient, queries)
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{
+		Addr: "localhost:6379",
+	})
+	defer asynqClient.Close()
+	payload, err := json.Marshal(asynqjobs.ScheduledJobPayload{
+		Message: "Hello World!",
+		ChatID:  1234,
+	})
+	if err != nil {
+		fmt.Println("Err : ", err)
+	}
+	task := asynq.NewTask("scheduled", payload)
+	info, err := asynqClient.Enqueue(task, asynq.ProcessAt(time.Now().Add(1*time.Minute)))
+	if err != nil {
+		fmt.Println("Err : ", err)
+	}
+	fmt.Printf("Info : %+v\n", info)
+
+	srv := asynq.NewServer(
+		asynq.RedisClientOpt{Addr: "localhost:6379"},
+		asynq.Config{Concurrency: 10},
+	)
+	mux := asynq.NewServeMux()
+	mux.Handle("scheduled", asynqjobs.NewScheduledJobProcessor(botClient))
+	go func() {
+		log.Info().Msg("Init asynq job server.")
+		if err := srv.Run(mux); err != nil {
+			fmt.Println("Err : ", err)
+		}
+	}()
 
 	cache, err := ristrettocache.NewCache[[]deepseek.ChatCompletionMessage]()
 	if err != nil {
@@ -59,20 +89,22 @@ func main() {
 
 	deepSeekClient := deepseekai.NewClient(envCfg.DeepSeekAPIKey)
 
-	commandsHandler := commands.NewHandler(botClient, queries, riverClient, cache)
+	commandsHandler := commands.NewHandler(botClient, queries, nil, cache)
 	messagesHandler := messages.NewHandler(botClient, queries, deepSeekClient, cache)
-	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, riverClient, pool)
+	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, nil, pool)
 
-	server := &http.Server{
+	webhookServer := &http.Server{
 		Addr:    ":9000",
 		Handler: nil,
 	}
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
+		log.Info().Msg("Init webhook server.")
+		if err := webhookServer.ListenAndServe(); err != nil {
 			log.Fatal().Err(err).Msg("Unable to start server.")
 		}
 	}()
 
+	log.Info().Msg("Init telegram bot message processors.")
 	for update := range botClient.UpdatesChannel {
 		if update.Message != nil {
 			if isCommand(update.Message.Text) {
@@ -85,7 +117,8 @@ func main() {
 		}
 	}
 
-	gracefulShutdown(botCancel, riverClient.Client, riverClient.CancelCompletedChannel, server)
+	//gracefulShutdown(botCancel, riverClient.Client, riverClient.CancelCompletedChannel, server)
+	gracefulShutdown(botCancel, webhookServer)
 }
 
 func setupLogger() {
@@ -108,8 +141,7 @@ func loadEnv() config.EnvConfig {
 	return envCfg
 }
 
-func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pgx.Tx],
-	cancelRiverCompletedEventSubscription func(), server *http.Server) {
+func gracefulShutdown(botCancel context.CancelFunc, server *http.Server) {
 	channel := make(chan os.Signal, 1)
 	signal.Notify(channel, syscall.SIGINT, syscall.SIGTERM)
 	<-channel
@@ -117,19 +149,36 @@ func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pg
 	log.Info().Msg("Shutting down Telegram bot.")
 	botCancel()
 
-	log.Info().Msg("Shutting down River client.")
-	defer cancelRiverCompletedEventSubscription()
+	log.Info().Msg("Shutting down http server.")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := riverClient.StopAndCancel(ctx); err != nil {
-		log.Err(err).Msg("Unable to shutdown river client.")
-	}
-
-	log.Info().Msg("Shutting down http server.")
 	if err := server.Shutdown(ctx); err != nil {
 		log.Err(err).Msg("Server forced to shutdown.")
 	}
 }
+
+//func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pgx.Tx],
+//	cancelRiverCompletedEventSubscription func(), server *http.Server) {
+//	channel := make(chan os.Signal, 1)
+//	signal.Notify(channel, syscall.SIGINT, syscall.SIGTERM)
+//	<-channel
+//
+//	log.Info().Msg("Shutting down Telegram bot.")
+//	botCancel()
+//
+//	log.Info().Msg("Shutting down River client.")
+//	defer cancelRiverCompletedEventSubscription()
+//	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+//	defer cancel()
+//	if err := riverClient.StopAndCancel(ctx); err != nil {
+//		log.Err(err).Msg("Unable to shutdown river client.")
+//	}
+//
+//	log.Info().Msg("Shutting down http server.")
+//	if err := server.Shutdown(ctx); err != nil {
+//		log.Err(err).Msg("Server forced to shutdown.")
+//	}
+//}
 
 func isCommand(text string) bool {
 	command := strings.TrimSpace(text)
