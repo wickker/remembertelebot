@@ -50,33 +50,58 @@ func main() {
 	_, botCancel := context.WithCancel(context.Background())
 
 	//riverClient := riverjobs.NewClient(envCfg, pool, botClient, queries)
-	asynqClient := asynq.NewClient(asynq.RedisClientOpt{
+	redisOpt := asynq.RedisClientOpt{
 		Addr: "localhost:6379",
-	})
+	}
+	asynqClient := asynq.NewClient(redisOpt)
 	defer asynqClient.Close()
 	payload, err := json.Marshal(asynqjobs.ScheduledJobPayload{
-		Message: "Hello World!",
+		Message: "Hello World Once-off!",
 		ChatID:  1234,
 	})
 	if err != nil {
 		fmt.Println("Err : ", err)
 	}
-	task := asynq.NewTask("scheduled", payload)
+	task := asynq.NewTask("s", payload)
 	info, err := asynqClient.Enqueue(task, asynq.ProcessAt(time.Now().Add(1*time.Minute)))
 	if err != nil {
 		fmt.Println("Err : ", err)
 	}
 	fmt.Printf("Info : %+v\n", info)
 
-	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: "localhost:6379"},
+	scheduler := asynq.NewScheduler(redisOpt, nil)
+	payload2, err := json.Marshal(asynqjobs.PeriodicJobPayload{
+		Message: "Hello World Periodic!",
+		ChatID:  1234,
+	})
+	task2 := asynq.NewTask("p", payload2)
+	if _, err := scheduler.Register("* * * * *", task2); err != nil {
+		fmt.Println("Err : ", err)
+	}
+	//go func() {
+	//	log.Info().Msg("Init asynq job scheduler.")
+	//	if err := scheduler.Run(); err != nil {
+	//		fmt.Println("Err : ", err)
+	//	}
+	//}()
+
+	asynqServer := asynq.NewServer(
+		redisOpt,
 		asynq.Config{Concurrency: 10},
 	)
 	mux := asynq.NewServeMux()
-	mux.Handle("scheduled", asynqjobs.NewScheduledJobProcessor(botClient))
+	mux.Handle("s", asynqjobs.NewScheduledJobProcessor(botClient))
+	mux.Handle("p", asynqjobs.NewPeriodicJobProcessor(botClient))
 	go func() {
 		log.Info().Msg("Init asynq job server.")
-		if err := srv.Run(mux); err != nil {
+		if err := asynqServer.Run(mux); err != nil {
+			fmt.Println("Err : ", err)
+		}
+	}()
+
+	go func() {
+		log.Info().Msg("Init asynq job scheduler.")
+		if err := scheduler.Run(); err != nil {
 			fmt.Println("Err : ", err)
 		}
 	}()

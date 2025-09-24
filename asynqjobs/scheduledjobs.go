@@ -29,7 +29,7 @@ func NewScheduledJobProcessor(botClient *bot.Client) *ScheduledJobProcessor {
 func (p *ScheduledJobProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 	var payload ScheduledJobPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		return fmt.Errorf("failed to unmarshal [payload: %+v]: %w", t.Payload(), err)
+		return fmt.Errorf("failed to unmarshal scheduled job payload [payload: %+v]: %w", t.Payload(), err)
 	}
 
 	log.Info().Msgf("Processing scheduled job: %+v", payload)
