@@ -48,54 +48,12 @@ func main() {
 	_, botCancel := context.WithCancel(context.Background())
 
 	asynqClient := asynqjobs.NewClient(envCfg, botClient, queries)
-
-	//riverClient := riverjobs.NewClient(envCfg, pool, botClient, queries)
-	//redisOpt := asynq.RedisClientOpt{
-	//	Addr: "localhost:6379",
-	//}
-	//asynqClient := asynq.NewClient(redisOpt)
-	//defer asynqClient.Close()
-	//payload, err := json.Marshal(asynqjobs.ScheduledJobPayload{
-	//	Message: "Hello World Once-off!",
-	//	ChatID:  1234,
-	//})
-	//if err != nil {
-	//	fmt.Println("Err : ", err)
-	//}
-	//task := asynq.NewTask("s", payload)
-	//info, err := asynqClient.Enqueue(task, asynq.ProcessAt(time.Now().Add(1*time.Minute)))
-	//if err != nil {
-	//	fmt.Println("Err : ", err)
-	//}
-	//fmt.Printf("Info : %+v\n", info)
-	//
-	//scheduler := asynq.NewScheduler(redisOpt, nil)
-	//payload2, err := json.Marshal(asynqjobs.PeriodicJobPayload{
-	//	Message: "Hello World Periodic!",
-	//	ChatID:  1234,
-	//})
-	//task2 := asynq.NewTask("p", payload2)
-	//entryID, err := scheduler.Register("* * * * *", task2)
-	//if err != nil {
-	//	fmt.Println("Err : ", err)
-	//}
-	//fmt.Println("EntryID : ", entryID)
-	//
-	//asynqServer := asynq.NewServer(
-	//	redisOpt,
-	//	asynq.Config{Concurrency: 10},
-	//)
-	//mux := asynq.NewServeMux()
-	//mux.Handle("s", asynqjobs.NewScheduledJobProcessor(botClient))
-	//mux.Handle("p", asynqjobs.NewPeriodicJobProcessor(botClient))
-
 	go func() {
 		log.Info().Msg("Init asynq job server.")
 		if err := asynqClient.Server.Run(asynqClient.Mux); err != nil {
 			log.Fatal().Err(err).Msg("Unable to init asynq job server.")
 		}
 	}()
-
 	go func() {
 		log.Info().Msg("Init asynq job scheduler.")
 		if err := asynqClient.Scheduler.Run(); err != nil {
@@ -111,9 +69,9 @@ func main() {
 
 	deepSeekClient := deepseekai.NewClient(envCfg.DeepSeekAPIKey)
 
-	commandsHandler := commands.NewHandler(botClient, queries, nil, cache, asynqClient)
+	commandsHandler := commands.NewHandler(botClient, queries, cache, asynqClient)
 	messagesHandler := messages.NewHandler(botClient, queries, deepSeekClient, cache)
-	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, nil, pool, asynqClient)
+	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, asynqClient)
 
 	webhookServer := &http.Server{
 		Addr:    ":9000",

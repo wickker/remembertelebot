@@ -9,13 +9,11 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
 	"remembertelebot/asynqjobs"
 	"remembertelebot/bot"
 	"remembertelebot/db/sqlc"
-	"remembertelebot/riverjobs"
 )
 
 const (
@@ -27,18 +25,14 @@ const (
 type Handler struct {
 	botClient   *bot.Client
 	queries     *sqlc.Queries
-	riverClient *riverjobs.Client
-	pool        *pgxpool.Pool
 	asynqClient *asynqjobs.Client
 }
 
-func NewHandler(botClient *bot.Client, queries *sqlc.Queries, riverClient *riverjobs.Client, pool *pgxpool.Pool,
+func NewHandler(botClient *bot.Client, queries *sqlc.Queries,
 	asyncClient *asynqjobs.Client) *Handler {
 	return &Handler{
 		botClient:   botClient,
 		queries:     queries,
-		riverClient: riverClient,
-		pool:        pool,
 		asynqClient: asyncClient,
 	}
 }
@@ -83,16 +77,6 @@ func (h *Handler) processConfirmJob(query *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	//tx, err := h.pool.Begin(ctx)
-	//if err != nil {
-	//	log.Err(err).Msgf("Unable to begin tx [chat: %+v].", chat)
-	//	h.sendErrorMessage(err, query)
-	//	return
-	//}
-	//defer func() {
-	//	_ = tx.Rollback(ctx)
-	//}()
-
 	isRecurring, err := strconv.ParseBool(chatContextMap["is_recurring"])
 	if err != nil {
 		log.Err(err).Msgf("Unable to parse boolean [isRecurring: %v][chat: %+v].", chatContextMap["is_recurring"],
@@ -101,11 +85,8 @@ func (h *Handler) processConfirmJob(query *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	//var riverJobID *int64
 	var asynqJobID string
 	if isRecurring {
-		//riverJobID, err = h.riverClient.AddPeriodicJob(chatContextMap["message"], chat.TelegramChatID,
-		//	chatContextMap["schedule"])
 		payload := asynqjobs.PeriodicJobPayload{
 			ChatID:  chat.TelegramChatID,
 			Message: chatContextMap["message"],
@@ -126,7 +107,6 @@ func (h *Handler) processConfirmJob(query *tgbotapi.CallbackQuery) {
 			h.sendErrorMessage(err, query)
 			return
 		}
-		//riverJobID, err = h.riverClient.AddScheduledJobTx(tx, chatContextMap["message"], chat.TelegramChatID, schedule)
 		payload := asynqjobs.ScheduledJobPayload{
 			ChatID:  chat.TelegramChatID,
 			Message: chatContextMap["message"],
@@ -145,44 +125,13 @@ func (h *Handler) processConfirmJob(query *tgbotapi.CallbackQuery) {
 		Message:        chatContextMap["message"],
 		Schedule:       chatContextMap["schedule"],
 		Name:           chatContextMap["name"],
-		//RiverJobID:     pgtype.Int8{Valid: true, Int64: *riverJobID},
-		AsynqJobID: pgtype.Text{Valid: true, String: asynqJobID},
+		AsynqJobID:     pgtype.Text{Valid: true, String: asynqJobID},
 	}); err != nil {
 		log.Err(err).Msgf("Unable to add new job to db [chat: %+v][asynqJobID: %v].",
 			chat, asynqJobID)
 		h.sendErrorMessage(err, query)
 		return
 	}
-
-	//if riverJobID == nil {
-	//	err := errors.New("river job ID is nil")
-	//	log.Err(err).Msgf("Unable to obtain valid river job ID [chat: %+v].",
-	//		chat)
-	//	h.sendErrorMessage(err, query)
-	//	return
-	//}
-	//
-	//qtx := h.queries.WithTx(tx)
-	//if _, err := qtx.CreateJob(ctx, sqlc.CreateJobParams{
-	//	TelegramChatID: query.Message.Chat.ID,
-	//	IsRecurring:    isRecurring,
-	//	Message:        chatContextMap["message"],
-	//	Schedule:       chatContextMap["schedule"],
-	//	Name:           chatContextMap["name"],
-	//	RiverJobID:     pgtype.Int8{Valid: true, Int64: *riverJobID},
-	//}); err != nil {
-	//	log.Err(err).Msgf("Unable to add new job to db [chat: %+v][riverJobID: %v].",
-	//		chat, *riverJobID)
-	//	h.sendErrorMessage(err, query)
-	//	return
-	//}
-	//
-	//if err := tx.Commit(ctx); err != nil {
-	//	log.Err(err).Msgf("Unable to commit tx [chat: %+v][riverJobID: %v].",
-	//		chat, *riverJobID)
-	//	h.sendErrorMessage(err, query)
-	//	return
-	//}
 
 	// show loader
 	_ = h.botClient.SendCallbackConfig(query.ID, "")
