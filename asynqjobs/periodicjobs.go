@@ -34,5 +34,6 @@ func (p *PeriodicJobProcessor) ProcessTask(ctx context.Context, t *asynq.Task) e
 
 	log.Info().Msgf("Processing periodic job: %+v", payload)
 	// TODO:
+	// send message
 	return nil
 }

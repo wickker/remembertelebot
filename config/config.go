@@ -8,6 +8,9 @@ type EnvConfig struct {
 	TelegramBotToken string `env:"TELEGRAM_BOT_TOKEN"`
 	BaseURL          string `env:"BASE_URL"`
 	DeepSeekAPIKey   string `env:"DEEP_SEEK_API_KEY"`
+	RedisAddress     string `env:"REDIS_ADDRESS"`
+	RedisPassword    string `env:"REDIS_PASSWORD" envDefault:""`
+	RedisUsername    string `env:"REDIS_USERNAME" envDefault:""`
 }
 
 func (c EnvConfig) IsDev() bool {

@@ -34,5 +34,7 @@ func (p *ScheduledJobProcessor) ProcessTask(ctx context.Context, t *asynq.Task) 
 
 	log.Info().Msgf("Processing scheduled job: %+v", payload)
 	// TODO:
+	// send message
+	// delete the job
 	return nil
 }
