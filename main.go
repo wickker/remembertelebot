@@ -111,9 +111,9 @@ func main() {
 
 	deepSeekClient := deepseekai.NewClient(envCfg.DeepSeekAPIKey)
 
-	commandsHandler := commands.NewHandler(botClient, queries, nil, cache)
+	commandsHandler := commands.NewHandler(botClient, queries, nil, cache, asynqClient)
 	messagesHandler := messages.NewHandler(botClient, queries, deepSeekClient, cache)
-	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, nil, pool)
+	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, nil, pool, asynqClient)
 
 	webhookServer := &http.Server{
 		Addr:    ":9000",

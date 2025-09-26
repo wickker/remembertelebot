@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 
 	"remembertelebot/bot"
@@ -40,7 +41,7 @@ func NewClient(envCfg config.EnvConfig, botClient *bot.Client, queries *sqlc.Que
 		asynq.Config{Concurrency: 10},
 	)
 	mux := asynq.NewServeMux()
-	mux.Handle(AsynqJobTypeScheduled, NewScheduledJobProcessor(botClient))
+	mux.Handle(AsynqJobTypeScheduled, NewScheduledJobProcessor(botClient, queries))
 	mux.Handle(AsynqJobTypePeriodic, NewPeriodicJobProcessor(botClient))
 
 	return &Client{
@@ -54,16 +55,19 @@ func NewClient(envCfg config.EnvConfig, botClient *bot.Client, queries *sqlc.Que
 }
 
 func (c *Client) AddScheduledJob(payload ScheduledJobPayload, schedule time.Time, jobID *string) (string, error) {
+	var taskID string
+	if jobID == nil {
+		taskID = uuid.New().String()
+	} else {
+		taskID = *jobID
+	}
+	payload.AsynqJobID = taskID
+
 	bytes, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal [payload: %+v][jobID: %v]: %w", bytes, jobID, err)
 	}
-
-	var opts []asynq.Option
-	if jobID != nil {
-		opts = append(opts, asynq.TaskID(*jobID))
-	}
-	task := asynq.NewTask(AsynqJobTypeScheduled, bytes, opts...)
+	task := asynq.NewTask(AsynqJobTypeScheduled, bytes, asynq.TaskID(taskID))
 
 	info, err := c.Client.Enqueue(task, asynq.ProcessAt(schedule))
 	if err != nil {
@@ -74,16 +78,19 @@ func (c *Client) AddScheduledJob(payload ScheduledJobPayload, schedule time.Time
 }
 
 func (c *Client) AddPeriodicJob(payload PeriodicJobPayload, schedule string, jobID *string) (string, error) {
+	var taskID string
+	if jobID == nil {
+		taskID = uuid.New().String()
+	} else {
+		taskID = *jobID
+	}
+	payload.AsynqJobID = taskID
+
 	bytes, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal [payload: %+v][jobID: %v]: %w", bytes, jobID, err)
 	}
-
-	var opts []asynq.Option
-	if jobID != nil {
-		opts = append(opts, asynq.TaskID(*jobID))
-	}
-	task := asynq.NewTask(AsynqJobTypePeriodic, bytes, opts...)
+	task := asynq.NewTask(AsynqJobTypePeriodic, bytes, asynq.TaskID(taskID))
 
 	entryID, err := c.Scheduler.Register(schedule, task)
 	if err != nil {
@@ -93,16 +100,16 @@ func (c *Client) AddPeriodicJob(payload PeriodicJobPayload, schedule string, job
 	return entryID, nil
 }
 
-func (c *Client) CancelPeriodicJob(jobID string) error {
-	if err := c.Scheduler.Unregister(jobID); err != nil {
-		return fmt.Errorf("failed to unregister periodic job [jobID: %v]: %w", jobID, err)
+func (c *Client) CancelPeriodicJob(asynqJobID string) error {
+	if err := c.Scheduler.Unregister(asynqJobID); err != nil {
+		return fmt.Errorf("failed to unregister periodic job [asynqJobID: %v]: %w", asynqJobID, err)
 	}
 	return nil
 }
 
-func (c *Client) CancelScheduledJob(jobID string) error {
-	if err := c.Inspector.DeleteTask("default", jobID); err != nil {
-		return fmt.Errorf("failed to de-queue scheduled job [jobID: %v]: %w", jobID, err)
+func (c *Client) CancelScheduledJob(asynqJobID string) error {
+	if err := c.Inspector.DeleteTask("default", asynqJobID); err != nil {
+		return fmt.Errorf("failed to de-queue scheduled job [asynqJobID: %v]: %w", asynqJobID, err)
 	}
 	return nil
 }

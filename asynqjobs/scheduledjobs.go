@@ -6,23 +6,27 @@ import (
 	"fmt"
 
 	"github.com/hibiken/asynq"
-	"github.com/rs/zerolog/log"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"remembertelebot/bot"
+	"remembertelebot/db/sqlc"
 )
 
 type ScheduledJobProcessor struct {
 	botClient *bot.Client
+	queries   *sqlc.Queries
 }
 
 type ScheduledJobPayload struct {
-	Message string `json:"message"`
-	ChatID  int64  `json:"chat_id"`
+	Message    string `json:"message"`
+	ChatID     int64  `json:"chat_id"`
+	AsynqJobID string `json:"asynq_job_id"`
 }
 
-func NewScheduledJobProcessor(botClient *bot.Client) *ScheduledJobProcessor {
+func NewScheduledJobProcessor(botClient *bot.Client, queries *sqlc.Queries) *ScheduledJobProcessor {
 	return &ScheduledJobProcessor{
 		botClient: botClient,
+		queries:   queries,
 	}
 }
 
@@ -32,9 +36,15 @@ func (p *ScheduledJobProcessor) ProcessTask(ctx context.Context, t *asynq.Task) 
 		return fmt.Errorf("failed to unmarshal scheduled job payload [payload: %+v]: %w", t.Payload(), err)
 	}
 
-	log.Info().Msgf("Processing scheduled job: %+v", payload)
-	// TODO:
 	// send message
+	if err := p.botClient.SendPlainMessage(payload.ChatID, payload.Message); err != nil {
+		return fmt.Errorf("failed to send scheduled message [payload: %+v]: %w", payload, err)
+	}
+
 	// delete the job
+	if _, err := p.queries.DeleteScheduledJobByAsynqJobID(context.Background(), pgtype.Text{Valid: true,
+		String: payload.AsynqJobID}); err != nil {
+		return fmt.Errorf("failed to delete job by asynqJobID [payload: %+v]: %w", payload, err)
+	}
 	return nil
 }

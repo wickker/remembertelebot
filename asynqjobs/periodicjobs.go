@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/hibiken/asynq"
-	"github.com/rs/zerolog/log"
 
 	"remembertelebot/bot"
 )
@@ -16,8 +15,9 @@ type PeriodicJobProcessor struct {
 }
 
 type PeriodicJobPayload struct {
-	Message string `json:"message"`
-	ChatID  int64  `json:"chat_id"`
+	Message    string `json:"message"`
+	ChatID     int64  `json:"chat_id"`
+	AsynqJobID string `json:"asynq_job_id"`
 }
 
 func NewPeriodicJobProcessor(botClient *bot.Client) *PeriodicJobProcessor {
@@ -32,8 +32,8 @@ func (p *PeriodicJobProcessor) ProcessTask(ctx context.Context, t *asynq.Task) e
 		return fmt.Errorf("failed to unmarshal periodic job payload [payload: %+v]: %w", t.Payload(), err)
 	}
 
-	log.Info().Msgf("Processing periodic job: %+v", payload)
-	// TODO:
-	// send message
+	if err := p.botClient.SendPlainMessage(payload.ChatID, payload.Message); err != nil {
+		return fmt.Errorf("failed to send periodic message [payload: %+v]: %w", payload, err)
+	}
 	return nil
 }
