@@ -51,7 +51,8 @@ func main() {
 
 	//riverClient := riverjobs.NewClient(envCfg, pool, botClient, queries)
 	redisOpt := asynq.RedisClientOpt{
-		Addr: "localhost:6379",
+		Addr:     "localhost:6379",
+		Username: "",
 	}
 	asynqClient := asynq.NewClient(redisOpt)
 	defer asynqClient.Close()
@@ -75,15 +76,11 @@ func main() {
 		ChatID:  1234,
 	})
 	task2 := asynq.NewTask("p", payload2)
-	if _, err := scheduler.Register("* * * * *", task2); err != nil {
+	entryID, err := scheduler.Register("* * * * *", task2)
+	if err != nil {
 		fmt.Println("Err : ", err)
 	}
-	//go func() {
-	//	log.Info().Msg("Init asynq job scheduler.")
-	//	if err := scheduler.Run(); err != nil {
-	//		fmt.Println("Err : ", err)
-	//	}
-	//}()
+	fmt.Println("EntryID : ", entryID)
 
 	asynqServer := asynq.NewServer(
 		redisOpt,
