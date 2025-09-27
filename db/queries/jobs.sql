@@ -46,3 +46,8 @@ UPDATE jobs
 SET river_job_id = $1
 WHERE id = $2
 RETURNING *;
+
+-- name: GetActiveJobs :many
+SELECT id, telegram_chat_id, is_recurring, message, schedule, name, river_job_id, asynq_job_id
+FROM jobs
+WHERE deleted_at IS NULL;

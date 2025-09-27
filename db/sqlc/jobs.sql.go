@@ -134,6 +134,52 @@ func (q *Queries) DeleteScheduledJobByRiverJobID(ctx context.Context, riverJobID
 	return i, err
 }
 
+const getActiveJobs = `-- name: GetActiveJobs :many
+SELECT id, telegram_chat_id, is_recurring, message, schedule, name, river_job_id, asynq_job_id
+FROM jobs
+WHERE deleted_at IS NULL
+`
+
+type GetActiveJobsRow struct {
+	ID             int32
+	TelegramChatID int64
+	IsRecurring    bool
+	Message        string
+	Schedule       string
+	Name           string
+	RiverJobID     pgtype.Int8
+	AsynqJobID     pgtype.Text
+}
+
+func (q *Queries) GetActiveJobs(ctx context.Context) ([]GetActiveJobsRow, error) {
+	rows, err := q.db.Query(ctx, getActiveJobs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetActiveJobsRow
+	for rows.Next() {
+		var i GetActiveJobsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TelegramChatID,
+			&i.IsRecurring,
+			&i.Message,
+			&i.Schedule,
+			&i.Name,
+			&i.RiverJobID,
+			&i.AsynqJobID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getActiveJobsByTelegramChatID = `-- name: GetActiveJobsByTelegramChatID :many
 SELECT id, telegram_chat_id, is_recurring, message, schedule, name, river_job_id, asynq_job_id
 FROM jobs
