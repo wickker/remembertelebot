@@ -13,19 +13,17 @@ import (
 
 	"github.com/caarlos0/env/v11"
 	"github.com/cohesion-org/deepseek-go"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
-	"github.com/riverqueue/river"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"remembertelebot/asynqjobs"
 	"remembertelebot/bot"
 	"remembertelebot/config"
 	"remembertelebot/db/sqlc"
 	"remembertelebot/deepseekai"
 	"remembertelebot/ristrettocache"
-	"remembertelebot/riverjobs"
 	"remembertelebot/services/callbackqueries"
 	"remembertelebot/services/commands"
 	"remembertelebot/services/messages"
@@ -49,7 +47,19 @@ func main() {
 	}
 	_, botCancel := context.WithCancel(context.Background())
 
-	riverClient := riverjobs.NewClient(envCfg, pool, botClient, queries)
+	asynqClient := asynqjobs.NewClient(envCfg, botClient, queries)
+	go func() {
+		log.Info().Msg("Init asynq job server.")
+		if err := asynqClient.Server.Run(asynqClient.Mux); err != nil {
+			log.Fatal().Err(err).Msg("Unable to init asynq job server.")
+		}
+	}()
+	go func() {
+		log.Info().Msg("Init asynq job scheduler.")
+		if err := asynqClient.Scheduler.Run(); err != nil {
+			log.Fatal().Err(err).Msg("Unable to init asynq job scheduler.")
+		}
+	}()
 
 	cache, err := ristrettocache.NewCache[[]deepseek.ChatCompletionMessage]()
 	if err != nil {
@@ -59,20 +69,22 @@ func main() {
 
 	deepSeekClient := deepseekai.NewClient(envCfg.DeepSeekAPIKey)
 
-	commandsHandler := commands.NewHandler(botClient, queries, riverClient, cache)
+	commandsHandler := commands.NewHandler(botClient, queries, cache, asynqClient)
 	messagesHandler := messages.NewHandler(botClient, queries, deepSeekClient, cache)
-	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, riverClient, pool)
+	callbackQueriesHandler := callbackqueries.NewHandler(botClient, queries, asynqClient)
 
-	server := &http.Server{
+	webhookServer := &http.Server{
 		Addr:    ":9000",
 		Handler: nil,
 	}
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
+		log.Info().Msg("Init webhook server.")
+		if err := webhookServer.ListenAndServe(); err != nil {
 			log.Fatal().Err(err).Msg("Unable to start server.")
 		}
 	}()
 
+	log.Info().Msg("Init telegram bot message processors.")
 	for update := range botClient.UpdatesChannel {
 		if update.Message != nil {
 			if isCommand(update.Message.Text) {
@@ -85,7 +97,7 @@ func main() {
 		}
 	}
 
-	gracefulShutdown(botCancel, riverClient.Client, riverClient.CancelCompletedChannel, server)
+	gracefulShutdown(botCancel, webhookServer, asynqClient)
 }
 
 func setupLogger() {
@@ -108,8 +120,7 @@ func loadEnv() config.EnvConfig {
 	return envCfg
 }
 
-func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pgx.Tx],
-	cancelRiverCompletedEventSubscription func(), server *http.Server) {
+func gracefulShutdown(botCancel context.CancelFunc, webhookServer *http.Server, asynqClient *asynqjobs.Client) {
 	channel := make(chan os.Signal, 1)
 	signal.Notify(channel, syscall.SIGINT, syscall.SIGTERM)
 	<-channel
@@ -117,17 +128,18 @@ func gracefulShutdown(botCancel context.CancelFunc, riverClient *river.Client[pg
 	log.Info().Msg("Shutting down Telegram bot.")
 	botCancel()
 
-	log.Info().Msg("Shutting down River client.")
-	defer cancelRiverCompletedEventSubscription()
+	log.Info().Msg("Shutting down http server.")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := riverClient.StopAndCancel(ctx); err != nil {
-		log.Err(err).Msg("Unable to shutdown river client.")
+	if err := webhookServer.Shutdown(ctx); err != nil {
+		log.Err(err).Msg("Webhook server failed to shutdown.")
 	}
 
-	log.Info().Msg("Shutting down http server.")
-	if err := server.Shutdown(ctx); err != nil {
-		log.Err(err).Msg("Server forced to shutdown.")
+	log.Info().Msg("Shutting down asynq job processing.")
+	asynqClient.Scheduler.Shutdown()
+	asynqClient.Server.Shutdown()
+	if err := asynqClient.Client.Close(); err != nil {
+		log.Err(err).Msg("Asynq client failed to shutdown.")
 	}
 }
 

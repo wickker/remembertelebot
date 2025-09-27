@@ -28,4 +28,5 @@ type Job struct {
 	CreatedAt      pgtype.Timestamp
 	UpdatedAt      pgtype.Timestamp
 	DeletedAt      pgtype.Timestamp
+	AsynqJobID     pgtype.Text
 }

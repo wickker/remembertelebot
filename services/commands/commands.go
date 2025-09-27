@@ -11,10 +11,10 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rs/zerolog/log"
 
+	"remembertelebot/asynqjobs"
 	"remembertelebot/bot"
 	"remembertelebot/db/sqlc"
 	"remembertelebot/ristrettocache"
-	"remembertelebot/riverjobs"
 	"remembertelebot/services/messages"
 )
 
@@ -28,16 +28,17 @@ const (
 type Handler struct {
 	botClient   *bot.Client
 	queries     *sqlc.Queries
-	riverClient *riverjobs.Client
 	cache       *ristrettocache.Cache[[]deepseek.ChatCompletionMessage]
+	asynqClient *asynqjobs.Client
 }
 
-func NewHandler(botClient *bot.Client, queries *sqlc.Queries, riverClient *riverjobs.Client, cache *ristrettocache.Cache[[]deepseek.ChatCompletionMessage]) *Handler {
+func NewHandler(botClient *bot.Client, queries *sqlc.Queries,
+	cache *ristrettocache.Cache[[]deepseek.ChatCompletionMessage], asyncClient *asynqjobs.Client) *Handler {
 	return &Handler{
 		botClient:   botClient,
 		queries:     queries,
-		riverClient: riverClient,
 		cache:       cache,
+		asynqClient: asyncClient,
 	}
 }
 
@@ -123,10 +124,15 @@ func (h *Handler) processCancelJob(message *tgbotapi.Message) {
 	}
 
 	if job.IsRecurring {
-		h.riverClient.CancelPeriodicJob(job.RiverJobID.Int64)
+		if err := h.asynqClient.CancelPeriodicJob(job.AsynqJobID.String); err != nil {
+			log.Err(err).Msgf("Unable to cancel periodic job on asynq [asynqJobID: %v].", job.AsynqJobID.String)
+			h.sendErrorMessage(err, message)
+			return
+		}
+
 	} else {
-		if err := h.riverClient.CancelScheduledJob(job.RiverJobID.Int64); err != nil {
-			log.Err(err).Msgf("Unable to cancel scheduled job on river [riverJobID: %v].", job.RiverJobID.Int64)
+		if err := h.asynqClient.CancelScheduledJob(job.AsynqJobID.String); err != nil {
+			log.Err(err).Msgf("Unable to cancel scheduled job on asynq [asynqJobID: %v].", job.AsynqJobID.String)
 			h.sendErrorMessage(err, message)
 			return
 		}
